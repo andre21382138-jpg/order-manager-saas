@@ -1,10 +1,13 @@
 import 'server-only'
 import type { ChannelAdapter } from './_types'
 import { cafe24Adapter } from './cafe24'
+import { smartstoreAdapter } from './smartstore'
+import { naverAdAdapter } from './naver-ad'
 
 const adapters: Record<string, ChannelAdapter> = {
   cafe24: cafe24Adapter,
-  // Plan 3에서 smartstore, naver_ad 추가
+  smartstore: smartstoreAdapter,
+  naver_ad: naverAdAdapter,
 }
 
 export function getAdapter(channel: string): ChannelAdapter | undefined {

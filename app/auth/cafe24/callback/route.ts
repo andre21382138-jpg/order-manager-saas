@@ -98,13 +98,12 @@ export async function GET(request: Request) {
   // Vault + brand_credentials INSERT (admin 클라이언트로)
   const admin = createAdminClient()
 
-  // vault.create_secret RPC는 vault schema에 있으므로 .schema('vault') 명시
+  // vault schema는 PostgREST에 expose 안 되므로 public wrapper 호출
   const { data: secretId, error: vaultErr } = await admin
-    .schema('vault')
-    .rpc('create_secret', {
-      new_secret: JSON.stringify(payload),
-      new_name: `cafe24:${stateData.brandId}:${stateData.mallId}`,
-      new_description: `${brand.name} / ${stateData.mallId}`,
+    .rpc('create_vault_secret', {
+      secret: JSON.stringify(payload),
+      name: `cafe24:${stateData.brandId}:${stateData.mallId}`,
+      description: `${brand.name} / ${stateData.mallId}`,
     })
   if (vaultErr || !secretId) {
     return redirectWithError(

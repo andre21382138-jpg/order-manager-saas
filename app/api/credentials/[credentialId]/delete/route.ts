@@ -48,9 +48,9 @@ export async function POST(
   }
 
   // 2. Vault secret 정리 (실패해도 brand_credentials는 삭제됨 — best-effort)
-  // vault.secrets는 vault schema에 있으므로 .schema('vault') 명시
+  // vault schema는 PostgREST에 expose 안 되므로 public wrapper 호출
   if (cred.secret_id) {
-    await admin.schema('vault').from('secrets').delete().eq('id', cred.secret_id)
+    await admin.rpc('delete_vault_secret', { secret_id: cred.secret_id })
     // 실패 시 로그만, 사용자에게 영향 없음
   }
 

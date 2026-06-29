@@ -24,17 +24,26 @@ export interface HandleCallbackInput {
 
 export type ValidateResult = { ok: true } | { ok: false; error: string }
 
+export interface FieldDef {
+  key: string
+  label: string
+  placeholder?: string
+  secret?: boolean
+  hint?: string
+}
+
 export interface ChannelAdapter {
   channel: Channel
   category: 'shop' | 'ad'
   authType: AuthType
 
-  // OAuth 매체 (cafe24)
+  // OAuth 매체 (cafe24) — Plan 2
   getAuthUrl?(input: GetAuthUrlInput): string
   handleCallback?(input: HandleCallbackInput): Promise<CredentialPayload>
 
-  // API 키 매체 (Plan 3+)
-  credentialFields?: { key: string; label: string; secret?: boolean }[]
+  // API 키 매체 (smartstore, naver_ad) — Plan 3
+  credentialFields?: FieldDef[]
+  buildPayload?(formValues: Record<string, string>): CredentialPayload
 
   // 공통
   validate(creds: CredentialPayload): Promise<ValidateResult>

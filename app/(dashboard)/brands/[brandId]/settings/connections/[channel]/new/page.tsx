@@ -96,7 +96,7 @@ export default async function NewApiKeyCredentialPage({
           )}
 
           <form
-            action={`/api/credentials/${channel}/register`}
+            action={`/api/credentials/register/${channel}`}
             method="POST"
             className="space-y-4"
           >

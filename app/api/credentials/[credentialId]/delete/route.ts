@@ -56,7 +56,7 @@ export async function POST(
 
   return NextResponse.redirect(
     new URL(
-      `/brands/${cred.brand_id}/settings/connections?connected=${encodeURIComponent('disconnected')}`,
+      `/brands/${cred.brand_id}/settings/connections?disconnected=${encodeURIComponent(cred.channel_account)}`,
       reqUrl
     ),
     { status: 303 }

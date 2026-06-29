@@ -56,7 +56,7 @@ export async function GET(request: Request) {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    return NextResponse.redirect(`${origin}/login`, { status: 303 })
+    return redirectWithError(origin, null, '로그인이 필요합니다')
   }
   const { data: brand } = await supabase
     .from('brands')

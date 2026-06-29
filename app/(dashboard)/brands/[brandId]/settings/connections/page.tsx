@@ -91,7 +91,7 @@ export default async function ConnectionsPage({
   searchParams,
 }: {
   params: Promise<{ brandId: string }>
-  searchParams: Promise<{ connected?: string; error?: string }>
+  searchParams: Promise<{ connected?: string; disconnected?: string; error?: string }>
 }) {
   const { brandId } = await params
   const sp = await searchParams
@@ -125,6 +125,13 @@ export default async function ConnectionsPage({
         <Card className="border-emerald-300 bg-emerald-50">
           <CardContent className="p-3 text-sm text-emerald-800">
             ✅ {sp.connected} 연결되었습니다.
+          </CardContent>
+        </Card>
+      )}
+      {sp.disconnected && (
+        <Card className="border-slate-300 bg-slate-50">
+          <CardContent className="p-3 text-sm text-slate-800">
+            🗑 {decodeURIComponent(sp.disconnected)} 연결이 해제되었습니다.
           </CardContent>
         </Card>
       )}

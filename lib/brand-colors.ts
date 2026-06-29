@@ -1,3 +1,5 @@
+import 'server-only'
+
 export const BRAND_COLORS = [
   '#f97316', // orange
   '#ec4899', // pink

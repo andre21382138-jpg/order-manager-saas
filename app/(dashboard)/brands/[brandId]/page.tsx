@@ -1,7 +1,8 @@
-import { redirect, notFound } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default async function BrandHomePage({
@@ -34,8 +35,11 @@ export default async function BrandHomePage({
         <p className="text-sm text-muted-foreground">
           첫 매체를 연결하면 데이터 수집이 시작됩니다.
         </p>
-        <Link href={`/brands/${brand.id}/settings/connections`}>
-          <Button className="w-full">매체 연결하기</Button>
+        <Link
+          href={`/brands/${brand.id}/settings/connections`}
+          className={cn(buttonVariants(), 'w-full')}
+        >
+          매체 연결하기
         </Link>
       </CardContent>
     </Card>

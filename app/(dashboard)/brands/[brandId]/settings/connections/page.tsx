@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createServerClient } from '@/lib/supabase/server'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 type Credential = {
@@ -69,10 +70,11 @@ function ChannelCard({
           </ul>
         )}
         {available ? (
-          <Link href={`/brands/${brandId}/settings/connections/${channelKey}/new`} className="block">
-            <Button variant="outline" size="sm" className="w-full">
-              + {title} 계정 추가
-            </Button>
+          <Link
+            href={`/brands/${brandId}/settings/connections/${channelKey}/new`}
+            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'w-full')}
+          >
+            + {title} 계정 추가
           </Link>
         ) : (
           <Button variant="outline" size="sm" className="w-full" disabled>

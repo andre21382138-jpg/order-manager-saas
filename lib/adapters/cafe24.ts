@@ -86,7 +86,8 @@ async function validate(creds: CredentialPayload): Promise<ValidateResult> {
     return { ok: false, error: 'mallId 또는 accessToken 누락' }
   }
 
-  const r = await fetch(`https://${mallId}.cafe24api.com/api/v2/admin/store`, {
+  // 우리 scope에 포함된 권한으로 토큰 유효성 확인 (mall.read_category)
+  const r = await fetch(`https://${mallId}.cafe24api.com/api/v2/admin/categories?limit=1`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'X-Cafe24-Api-Version': CAFE24_API_VERSION,

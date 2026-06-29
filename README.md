@@ -20,3 +20,9 @@ npm install
 cp .env.example .env.local   # 값 채워넣기
 npm run dev                  # http://localhost:3030
 ```
+
+## 배포
+
+- **Production**: https://order-manager-saas-bay.vercel.app
+- **Supabase**: 기존 `order-manager` 프로젝트 재사용 (멀티테넌트 RLS 적용)
+- **GitHub Actions**: 미설정 (Vercel auto-deploy)

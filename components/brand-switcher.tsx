@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import {
   DropdownMenu,
@@ -9,7 +8,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Button } from '@/components/ui/button'
 
 type Brand = {
   id: string
@@ -43,15 +41,13 @@ export function BrandSwitcher({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger>
-        <Button variant="outline" size="sm" className="gap-2">
-          <span
-            className="inline-block h-2.5 w-2.5 rounded-full"
-            style={{ backgroundColor: current?.color ?? '#94a3b8' }}
-          />
-          <span>{current ? current.name : '브랜드 선택'}</span>
-          <span className="text-xs text-muted-foreground">▼</span>
-        </Button>
+      <DropdownMenuTrigger className="inline-flex h-8 items-center gap-2 rounded-md border border-input bg-background px-3 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground">
+        <span
+          className="inline-block h-2.5 w-2.5 rounded-full"
+          style={{ backgroundColor: current?.color ?? '#94a3b8' }}
+        />
+        <span>{current ? current.name : '브랜드 선택'}</span>
+        <span className="text-xs text-muted-foreground">▼</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
         {brands.map((b) => (

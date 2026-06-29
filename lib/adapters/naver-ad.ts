@@ -1,23 +1,9 @@
 import 'server-only'
-import { createHmac } from 'crypto'
 import type {
   ChannelAdapter,
   CredentialPayload,
   ValidateResult,
 } from './_types'
-
-const NAVERAD_BASE = 'https://api.searchad.naver.com'
-
-function signHmac(
-  method: string,
-  uri: string,
-  timestamp: string,
-  secretKey: string
-): string {
-  return createHmac('sha256', secretKey)
-    .update(`${timestamp}.${method}.${uri}`)
-    .digest('base64')
-}
 
 function buildPayload(formValues: Record<string, string>): CredentialPayload {
   return {
@@ -28,41 +14,41 @@ function buildPayload(formValues: Record<string, string>): CredentialPayload {
 }
 
 async function validate(creds: CredentialPayload): Promise<ValidateResult> {
-  const customerId = String(creds.customerId ?? '')
-  const accessLicense = String(creds.accessLicense ?? '')
-  const secretKey = String(creds.secretKey ?? '')
-  if (!customerId || !accessLicense || !secretKey) {
-    return { ok: false, error: 'customerId/accessLicense/secretKey 필드 누락' }
+  const proxyUrl = process.env.VALIDATE_PROXY_URL
+  const token = process.env.VALIDATE_PROXY_TOKEN
+  if (!proxyUrl || !token) {
+    return { ok: false, error: 'validate-proxy 설정 누락 (VALIDATE_PROXY_URL/TOKEN)' }
   }
-
-  const uri = '/ncc/campaigns'
-  const timestamp = Date.now().toString()
-  const signature = signHmac('GET', uri, timestamp, secretKey)
 
   let r: Response
   try {
-    r = await fetch(`${NAVERAD_BASE}${uri}`, {
+    r = await fetch(`${proxyUrl}/validate/naver_ad`, {
+      method: 'POST',
       headers: {
-        'X-Timestamp': timestamp,
-        'X-API-KEY': accessLicense,
-        'X-Customer': customerId,
-        'X-Signature': signature,
+        'Content-Type': 'application/json',
+        'X-Proxy-Token': token,
       },
+      body: JSON.stringify({
+        customerId: creds.customerId,
+        accessLicense: creds.accessLicense,
+        secretKey: creds.secretKey,
+      }),
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'network error'
-    return { ok: false, error: `네이버광고 호출 실패: ${msg}` }
+    return { ok: false, error: `validate-proxy 호출 실패: ${msg}` }
   }
 
-  if (r.ok) return { ok: true }
-  if (r.status === 401 || r.status === 403) {
-    return {
-      ok: false,
-      error: '키가 유효하지 않습니다. customer_id / access license / secret key 확인',
-    }
+  if (!r.ok) {
+    if (r.status === 401) return { ok: false, error: 'validate-proxy 인증 실패 (token 불일치)' }
+    return { ok: false, error: `validate-proxy 응답 ${r.status}` }
   }
-  const text = await r.text().catch(() => '')
-  return { ok: false, error: `네이버광고 API 에러 (${r.status}): ${text.slice(0, 200)}` }
+
+  try {
+    return (await r.json()) as ValidateResult
+  } catch {
+    return { ok: false, error: 'validate-proxy 응답 파싱 실패' }
+  }
 }
 
 export const naverAdAdapter: ChannelAdapter = {

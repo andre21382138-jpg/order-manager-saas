@@ -1,12 +1,9 @@
 import 'server-only'
-import bcrypt from 'bcryptjs'
 import type {
   ChannelAdapter,
   CredentialPayload,
   ValidateResult,
 } from './_types'
-
-const NAVER_COMMERCE_BASE = 'https://api.commerce.naver.com'
 
 function buildPayload(formValues: Record<string, string>): CredentialPayload {
   return {
@@ -16,47 +13,40 @@ function buildPayload(formValues: Record<string, string>): CredentialPayload {
 }
 
 async function validate(creds: CredentialPayload): Promise<ValidateResult> {
-  const clientId = String(creds.clientId ?? '')
-  const clientSecret = String(creds.clientSecret ?? '')
-  if (!clientId || !clientSecret) {
-    return { ok: false, error: 'clientId/clientSecret 누락' }
+  const proxyUrl = process.env.VALIDATE_PROXY_URL
+  const token = process.env.VALIDATE_PROXY_TOKEN
+  if (!proxyUrl || !token) {
+    return { ok: false, error: 'validate-proxy 설정 누락 (VALIDATE_PROXY_URL/TOKEN)' }
   }
-
-  const timestamp = Date.now()
-  const password = `${clientId}_${timestamp}`
-  const hashed = bcrypt.hashSync(password, clientSecret)
-  const sign = Buffer.from(hashed).toString('base64')
-
-  const body = new URLSearchParams({
-    client_id: clientId,
-    timestamp: String(timestamp),
-    client_secret_sign: sign,
-    grant_type: 'client_credentials',
-    type: 'SELF',
-  }).toString()
 
   let r: Response
   try {
-    r = await fetch(`${NAVER_COMMERCE_BASE}/external/v1/oauth2/token`, {
+    r = await fetch(`${proxyUrl}/validate/smartstore`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Proxy-Token': token,
+      },
+      body: JSON.stringify({
+        clientId: creds.clientId,
+        clientSecret: creds.clientSecret,
+      }),
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'network error'
-    return { ok: false, error: `스마트스토어 호출 실패: ${msg}` }
+    return { ok: false, error: `validate-proxy 호출 실패: ${msg}` }
   }
 
-  if (r.ok) {
-    const data = (await r.json().catch(() => null)) as { access_token?: string } | null
-    if (data?.access_token) return { ok: true }
-    return { ok: false, error: '응답에 access_token 없음' }
+  if (!r.ok) {
+    if (r.status === 401) return { ok: false, error: 'validate-proxy 인증 실패 (token 불일치)' }
+    return { ok: false, error: `validate-proxy 응답 ${r.status}` }
   }
-  if (r.status === 400 || r.status === 401) {
-    return { ok: false, error: 'Client ID 또는 Secret이 올바르지 않습니다' }
+
+  try {
+    return (await r.json()) as ValidateResult
+  } catch {
+    return { ok: false, error: 'validate-proxy 응답 파싱 실패' }
   }
-  const text = await r.text().catch(() => '')
-  return { ok: false, error: `스마트스토어 API 에러 (${r.status}): ${text.slice(0, 200)}` }
 }
 
 export const smartstoreAdapter: ChannelAdapter = {

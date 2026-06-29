@@ -32,6 +32,22 @@ export interface FieldDef {
   hint?: string
 }
 
+// ★ Plan 4 신규
+export interface SyncContext {
+  brandId: string
+  channelAccount: string
+  dateRangeStart?: string
+  dateRangeEnd?: string
+}
+
+export type SyncResult =
+  | { ok: true; rowsUpserted: number; meta?: Record<string, unknown> }
+  | { ok: false; error: string; retryable: boolean }
+
+export type RefreshResult =
+  | { ok: true; newPayload: CredentialPayload }
+  | { ok: false; error: string }
+
 export interface ChannelAdapter {
   channel: Channel
   category: 'shop' | 'ad'
@@ -47,4 +63,11 @@ export interface ChannelAdapter {
 
   // 공통
   validate(creds: CredentialPayload): Promise<ValidateResult>
+
+  // ★ Plan 4 신규 — Plan 5/6/7에서 매체별 구현
+  refreshToken?(creds: CredentialPayload): Promise<RefreshResult>
+  syncOrders?(creds: CredentialPayload, ctx: SyncContext): Promise<SyncResult>
+  syncProducts?(creds: CredentialPayload, ctx: SyncContext): Promise<SyncResult>
+  syncAdUnits?(creds: CredentialPayload, ctx: SyncContext): Promise<SyncResult>
+  syncAdStats?(creds: CredentialPayload, ctx: SyncContext): Promise<SyncResult>
 }

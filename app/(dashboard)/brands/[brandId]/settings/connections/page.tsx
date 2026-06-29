@@ -156,14 +156,14 @@ export default async function ConnectionsPage({
           channelKey="smartstore"
           brandId={brand.id}
           credentials={credsByChannel['smartstore'] ?? []}
-          available={false}
+          available
         />
         <ChannelCard
           title="네이버광고"
           channelKey="naver_ad"
           brandId={brand.id}
           credentials={credsByChannel['naver_ad'] ?? []}
-          available={false}
+          available
         />
       </div>
     </div>

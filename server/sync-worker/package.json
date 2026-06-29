@@ -1,0 +1,15 @@
+{
+  "name": "sync-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plan 4 sync worker + validate-proxy for order-manager-saas",
+  "main": "worker.js",
+  "scripts": {
+    "start:worker": "node worker.js",
+    "start:validate": "node validate-server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.108.2",
+    "bcryptjs": "^3.0.3"
+  }
+}

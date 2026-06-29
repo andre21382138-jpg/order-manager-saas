@@ -9,6 +9,7 @@ import {
   type FieldPath,
   type FieldValues,
 } from "react-hook-form"
+import { Slot } from "@radix-ui/react-slot"
 
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
@@ -44,11 +45,11 @@ const useFormField = () => {
   const itemContext = React.useContext(FormItemContext)
   const { getFieldState, formState } = useFormContext()
 
-  const fieldState = getFieldState(fieldContext.name, formState)
-
   if (!fieldContext) {
     throw new Error("useFormField should be used within <FormField>")
   }
+
+  const fieldState = getFieldState(fieldContext.name, formState)
 
   const { id } = itemContext
 
@@ -100,11 +101,11 @@ function FormLabel({
   )
 }
 
-function FormControl({ ...props }: React.ComponentProps<"div">) {
+function FormControl({ ...props }: React.ComponentProps<typeof Slot>) {
   const { error, formItemId, formDescriptionId, formMessageId } = useFormField()
 
   return (
-    <div
+    <Slot
       data-slot="form-control"
       id={formItemId}
       aria-describedby={

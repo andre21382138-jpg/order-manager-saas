@@ -71,6 +71,7 @@ async function fetchAllRows(
     .eq('brand_id', brandId)
     .gte('date', range.from)
     .lte('date', range.to)
+    .limit(100000)
   if (error) throw new Error(`ad_stats 조회 실패: ${error.message}`)
   return (data ?? []) as unknown as RawStatsRow[]
 }
@@ -215,6 +216,7 @@ export async function getTrendByUnitId(
     .gte('date', range.from)
     .lte('date', range.to)
     .order('date', { ascending: true })
+    .limit(10000)
   if (error) throw new Error(`trend 조회 실패: ${error.message}`)
   return (data ?? []).map((r) => ({
     date: r.date as string,

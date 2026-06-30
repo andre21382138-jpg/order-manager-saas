@@ -5,6 +5,7 @@ import type {
   HandleCallbackInput,
   CredentialPayload,
   ValidateResult,
+  SyncContext,
 } from './_types'
 
 export const CAFE24_SCOPES = [
@@ -106,6 +107,26 @@ async function validate(creds: CredentialPayload): Promise<ValidateResult> {
   return { ok: false, error: `카페24 API 에러 (${r.status}): ${text.slice(0, 200)}` }
 }
 
+async function refreshToken(
+  _creds: CredentialPayload
+): Promise<{ ok: false; error: string }> {
+  throw new Error('refreshToken must run on virtual server sync-worker (not Vercel)')
+}
+
+async function syncOrders(
+  _creds: CredentialPayload,
+  _ctx: SyncContext
+): Promise<{ ok: false; error: string; retryable: boolean }> {
+  throw new Error('syncOrders must run on virtual server sync-worker (not Vercel)')
+}
+
+async function syncProducts(
+  _creds: CredentialPayload,
+  _ctx: SyncContext
+): Promise<{ ok: false; error: string; retryable: boolean }> {
+  throw new Error('syncProducts must run on virtual server sync-worker (not Vercel)')
+}
+
 export const cafe24Adapter: ChannelAdapter = {
   channel: 'cafe24',
   category: 'shop',
@@ -113,4 +134,7 @@ export const cafe24Adapter: ChannelAdapter = {
   getAuthUrl,
   handleCallback,
   validate,
+  refreshToken,
+  syncOrders,
+  syncProducts,
 }

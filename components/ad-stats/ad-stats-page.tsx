@@ -7,6 +7,7 @@ import {
   getDaily,
   getByType,
   getCampaigns,
+  getKeywords,
   type DateRange,
 } from '@/lib/queries/ad-stats'
 import { DateRangeFilter, defaultRange } from './date-range-filter'
@@ -14,6 +15,7 @@ import { AdKpiCards } from './ad-kpi-cards'
 import { DailyTable } from './daily-table'
 import { CampaignTypeTable } from './campaign-type-table'
 import { CampaignTable } from './campaign-table'
+import { KeywordTable } from './keyword-table'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 
@@ -48,6 +50,11 @@ export function AdStatsPage({
   const campaigns = useSWR(
     hasCredential ? ['campaigns', brand.id, range.from, range.to] : null,
     () => getCampaigns(supabase, brand.id, range)
+  )
+
+  const keywords = useSWR(
+    hasCredential ? ['keywords', brand.id, range.from, range.to] : null,
+    () => getKeywords(supabase, brand.id, range)
   )
 
   if (!hasCredential) {
@@ -92,12 +99,16 @@ export function AdStatsPage({
         onRowClick={(u) => setTrendUnit(u)}
       />
 
-      {/* Task 7: KeywordTable */}
-      {/* Task 8: TrendChartModal */}
+      <KeywordTable
+        data={keywords.data ?? []}
+        campaigns={campaigns.data ?? []}
+        isLoading={keywords.isLoading}
+        onRowClick={(u) => setTrendUnit(u)}
+      />
 
       <Card>
         <CardContent className="p-4 text-sm text-muted-foreground">
-          키워드 테이블 + 트렌드 모달 (Task 7~8)
+          트렌드 모달 (Task 8)
         </CardContent>
       </Card>
     </div>

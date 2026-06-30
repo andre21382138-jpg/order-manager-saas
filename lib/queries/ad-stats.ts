@@ -62,18 +62,28 @@ async function fetchAllRows(
   brandId: string,
   range: DateRange
 ): Promise<RawStatsRow[]> {
-  const { data, error } = await supabase
-    .from('ad_stats')
-    .select(`
-      date, impressions, clicks, cost, conversions, conversion_revenue,
-      ad_units!inner ( id, external_id, external_name, level, parent_id, metadata )
-    `)
-    .eq('brand_id', brandId)
-    .gte('date', range.from)
-    .lte('date', range.to)
-    .limit(100000)
-  if (error) throw new Error(`ad_stats 조회 실패: ${error.message}`)
-  return (data ?? []) as unknown as RawStatsRow[]
+  const PAGE = 1000
+  const all: RawStatsRow[] = []
+  let from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('ad_stats')
+      .select(`
+        date, impressions, clicks, cost, conversions, conversion_revenue,
+        ad_units!inner ( id, external_id, external_name, level, parent_id, metadata )
+      `)
+      .eq('brand_id', brandId)
+      .gte('date', range.from)
+      .lte('date', range.to)
+      .range(from, from + PAGE - 1)
+    if (error) throw new Error(`ad_stats 조회 실패: ${error.message}`)
+    const chunk = (data ?? []) as unknown as RawStatsRow[]
+    all.push(...chunk)
+    if (chunk.length < PAGE) break
+    from += PAGE
+    if (from > 200000) break // safety
+  }
+  return all
 }
 
 function toNum(v: number | string | null | undefined): number {

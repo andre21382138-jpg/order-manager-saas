@@ -3,6 +3,7 @@
 
 const https = require('https')
 const bcrypt = require('bcryptjs')
+const crypto = require('crypto')
 
 function yesterdayKST() {
   const d = new Date(Date.now() + 9 * 60 * 60 * 1000 - 86400000)
@@ -78,6 +79,36 @@ function httpsRequest(url, options = {}, body = null) {
     if (body) req.write(typeof body === 'string' ? body : JSON.stringify(body))
     req.end()
   })
+}
+
+// === Plan 7: 네이버 검색광고 helpers ===
+
+function signNaverAd(secretKey, method, uriPath, timestamp) {
+  const message = `${timestamp}.${method}.${uriPath}`
+  return crypto.createHmac('sha256', secretKey).update(message).digest('base64')
+}
+
+async function naverAdGet(uriPath, query, creds) {
+  const timestamp = Date.now().toString()
+  const signature = signNaverAd(creds.secretKey, 'GET', uriPath, timestamp)
+  const qs = query ? '?' + new URLSearchParams(query).toString() : ''
+  const url = `https://api.searchad.naver.com${uriPath}${qs}`
+  return httpsRequest(url, {
+    method: 'GET',
+    headers: {
+      'X-Timestamp': timestamp,
+      'X-API-KEY': creds.accessLicense,
+      'X-Customer': creds.customerId,
+      'X-Signature': signature,
+      'Content-Type': 'application/json',
+    },
+  })
+}
+
+function chunkArray(arr, size) {
+  const out = []
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
+  return out
 }
 
 const cafe24Adapter = {

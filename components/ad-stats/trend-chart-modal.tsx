@@ -79,7 +79,7 @@ export function TrendChartModal({
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="!max-w-[min(95vw,1280px)] w-full">
         <DialogHeader>
           <DialogTitle>{unit.name} — 추이</DialogTitle>
         </DialogHeader>
@@ -98,7 +98,7 @@ export function TrendChartModal({
           ))}
         </div>
 
-        <div className="h-64 w-full">
+        <div className="h-96 w-full">
           {isLoading && <div className="flex h-full items-center justify-center text-muted-foreground">로딩 중...</div>}
           {!isLoading && series.length === 0 && (
             <div className="flex h-full items-center justify-center text-muted-foreground">데이터 없음</div>

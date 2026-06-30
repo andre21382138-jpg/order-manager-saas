@@ -6,12 +6,14 @@ import {
   getKpis,
   getDaily,
   getByType,
+  getCampaigns,
   type DateRange,
 } from '@/lib/queries/ad-stats'
 import { DateRangeFilter, defaultRange } from './date-range-filter'
 import { AdKpiCards } from './ad-kpi-cards'
 import { DailyTable } from './daily-table'
 import { CampaignTypeTable } from './campaign-type-table'
+import { CampaignTable } from './campaign-table'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 
@@ -25,7 +27,7 @@ export function AdStatsPage({
   hasCredential: boolean
 }) {
   const [range, setRange] = useState<DateRange>(defaultRange)
-  const [, setTrendUnit] = useState<TrendUnit | null>(null) // Task 8에서 사용
+  const [trendUnit, setTrendUnit] = useState<TrendUnit | null>(null)
   const supabase = createBrowserClient()
 
   const kpis = useSWR(
@@ -41,6 +43,11 @@ export function AdStatsPage({
   const byType = useSWR(
     hasCredential ? ['byType', brand.id, range.from, range.to] : null,
     () => getByType(supabase, brand.id, range)
+  )
+
+  const campaigns = useSWR(
+    hasCredential ? ['campaigns', brand.id, range.from, range.to] : null,
+    () => getCampaigns(supabase, brand.id, range)
   )
 
   if (!hasCredential) {
@@ -79,12 +86,18 @@ export function AdStatsPage({
       <DailyTable data={daily.data ?? []} isLoading={daily.isLoading} />
       <CampaignTypeTable data={byType.data ?? []} isLoading={byType.isLoading} />
 
-      {/* Task 6/7 가 채움: CampaignTable, KeywordTable */}
+      <CampaignTable
+        data={campaigns.data ?? []}
+        isLoading={campaigns.isLoading}
+        onRowClick={(u) => setTrendUnit(u)}
+      />
+
+      {/* Task 7: KeywordTable */}
       {/* Task 8: TrendChartModal */}
 
       <Card>
         <CardContent className="p-4 text-sm text-muted-foreground">
-          이후 캠페인 / 키워드 테이블 + 트렌드 모달 (Task 6~8)
+          키워드 테이블 + 트렌드 모달 (Task 7~8)
         </CardContent>
       </Card>
     </div>

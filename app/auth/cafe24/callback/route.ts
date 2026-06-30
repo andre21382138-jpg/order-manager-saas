@@ -121,7 +121,10 @@ export async function GET(request: Request) {
       channel_account: stateData.mallId,
       secret_id: secretId,
       status: 'active',
-      metadata: { scope: 'mall.read_order,mall.write_order,mall.read_analytics,mall.read_product,mall.read_category' },
+      metadata: {
+        scope: 'mall.read_order,mall.write_order,mall.read_analytics,mall.read_product,mall.read_category',
+        expires_at: payload.expiresAt,
+      },
     })
 
   if (insertErr) {

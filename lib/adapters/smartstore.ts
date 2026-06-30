@@ -3,6 +3,7 @@ import type {
   ChannelAdapter,
   CredentialPayload,
   ValidateResult,
+  SyncContext,
 } from './_types'
 
 function buildPayload(formValues: Record<string, string>): CredentialPayload {
@@ -49,6 +50,13 @@ async function validate(creds: CredentialPayload): Promise<ValidateResult> {
   }
 }
 
+async function syncOrders(
+  _creds: CredentialPayload,
+  _ctx: SyncContext
+): Promise<{ ok: false; error: string; retryable: boolean }> {
+  throw new Error('syncOrders must run on virtual server sync-worker (not Vercel)')
+}
+
 export const smartstoreAdapter: ChannelAdapter = {
   channel: 'smartstore',
   category: 'shop',
@@ -73,4 +81,5 @@ export const smartstoreAdapter: ChannelAdapter = {
   ],
   buildPayload,
   validate,
+  syncOrders,
 }

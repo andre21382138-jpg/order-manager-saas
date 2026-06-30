@@ -1,6 +1,7 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 type Props = {
@@ -90,12 +91,26 @@ export function CredentialRow({ id, channelAccount, status, lastSyncedAt }: Prop
             </>
           ) : (
             <>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(true)}>
-                ✏
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setEditing(true)}
+                aria-label="이름 변경"
+                title="이름 변경"
+              >
+                <Pencil className="h-4 w-4" />
               </Button>
               <form action={`/api/credentials/${id}/delete`} method="post">
-                <Button type="submit" variant="ghost" size="sm" className="text-red-600">
-                  ✕
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-600"
+                  aria-label="삭제"
+                  title="삭제"
+                >
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </form>
             </>

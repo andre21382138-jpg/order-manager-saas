@@ -1037,7 +1037,7 @@ const naverAdAdapter = {
         .upsert(keywordRows, { onConflict: 'brand_id,channel,external_id' })
         .select('id, external_id')
       if (kwErr) {
-        return { ok: false, error: `ad_units (keyword) upsert 실패: ${kwErr.message}`, retryable: true }
+        return { ok: false, error: `ad_units (keyword) upsert 실패: ${kwErr.message}`, retryable: false }
       }
       savedKeywords = data || []
     }

@@ -3,6 +3,7 @@ import type {
   ChannelAdapter,
   CredentialPayload,
   ValidateResult,
+  SyncContext,
 } from './_types'
 
 function buildPayload(formValues: Record<string, string>): CredentialPayload {
@@ -51,6 +52,20 @@ async function validate(creds: CredentialPayload): Promise<ValidateResult> {
   }
 }
 
+async function syncAdStats(
+  _creds: CredentialPayload,
+  _ctx: SyncContext
+): Promise<{ ok: false; error: string; retryable: boolean }> {
+  throw new Error('syncAdStats must run on virtual server sync-worker (not Vercel)')
+}
+
+async function syncAdUnits(
+  _creds: CredentialPayload,
+  _ctx: SyncContext
+): Promise<{ ok: false; error: string; retryable: boolean }> {
+  throw new Error('syncAdUnits must run on virtual server sync-worker (not Vercel)')
+}
+
 export const naverAdAdapter: ChannelAdapter = {
   channel: 'naver_ad',
   category: 'ad',
@@ -79,4 +94,6 @@ export const naverAdAdapter: ChannelAdapter = {
   ],
   buildPayload,
   validate,
+  syncAdStats,
+  syncAdUnits,
 }

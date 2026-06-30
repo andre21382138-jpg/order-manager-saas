@@ -18,6 +18,7 @@ import { CampaignTable } from './campaign-table'
 import { KeywordTable } from './keyword-table'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
+import { TrendChartModal } from './trend-chart-modal'
 
 type TrendUnit = { id: string; name: string }
 
@@ -106,11 +107,14 @@ export function AdStatsPage({
         onRowClick={(u) => setTrendUnit(u)}
       />
 
-      <Card>
-        <CardContent className="p-4 text-sm text-muted-foreground">
-          트렌드 모달 (Task 8)
-        </CardContent>
-      </Card>
+      {trendUnit && (
+        <TrendChartModal
+          brandId={brand.id}
+          unit={trendUnit}
+          range={range}
+          onClose={() => setTrendUnit(null)}
+        />
+      )}
     </div>
   )
 }

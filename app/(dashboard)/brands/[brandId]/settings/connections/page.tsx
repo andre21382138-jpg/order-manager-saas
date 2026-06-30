@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CredentialRow } from '@/components/credential-row'
 
 type Credential = {
   id: string
@@ -42,30 +43,13 @@ function ChannelCard({
         ) : (
           <ul className="space-y-2">
             {credentials.map((c) => (
-              <li
+              <CredentialRow
                 key={c.id}
-                className="flex items-center justify-between rounded border p-2 text-sm"
-              >
-                <div className="flex items-center gap-2">
-                  <span>{c.status === 'active' ? '✅' : '⚠️'}</span>
-                  <span className="font-medium">{c.channel_account}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {c.last_synced_at
-                      ? `🔄 ${new Date(c.last_synced_at).toLocaleString('ko-KR')}`
-                      : '🔄 -'}
-                  </span>
-                </div>
-                <form action={`/api/credentials/${c.id}/delete`} method="post">
-                  <Button
-                    type="submit"
-                    variant="ghost"
-                    size="sm"
-                    className="text-red-600"
-                  >
-                    ✕
-                  </Button>
-                </form>
-              </li>
+                id={c.id}
+                channelAccount={c.channel_account}
+                status={c.status}
+                lastSyncedAt={c.last_synced_at}
+              />
             ))}
           </ul>
         )}

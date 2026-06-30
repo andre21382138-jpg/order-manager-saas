@@ -74,7 +74,86 @@ const cafe24Adapter = {
     }
   },
 
-  // syncOrders / syncProducts — Task 5, 6에서 추가
+  // syncOrders — Task 6에서 추가
+
+  async syncProducts(creds, ctx) {
+    const { mallId, accessToken } = creds
+    const brandId = ctx.brandId
+    if (!mallId || !accessToken || !brandId) {
+      return { ok: false, error: 'syncProducts: 필수 인자 누락', retryable: false }
+    }
+
+    const { createAdminClient } = require('./supabase')
+    const admin = createAdminClient()
+
+    let totalUpserted = 0
+    let offset = 0
+    const limit = 100
+
+    while (true) {
+      let r
+      try {
+        r = await httpsRequest(
+          `https://${mallId}.cafe24api.com/api/v2/admin/products?shop_no=1&limit=${limit}&offset=${offset}`,
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'X-Cafe24-Api-Version': '2025-12-01',
+            },
+          }
+        )
+      } catch (e) {
+        return { ok: false, error: `카페24 products 호출 실패: ${e.message}`, retryable: true }
+      }
+
+      if (r.status === 401) {
+        return { ok: false, error: 'access_token 만료 (401)', retryable: true }
+      }
+      if (r.status !== 200) {
+        return {
+          ok: false,
+          error: `카페24 products API 에러 (${r.status}): ${JSON.stringify(r.data).slice(0, 200)}`,
+          retryable: true,
+        }
+      }
+
+      const products = Array.isArray(r.data?.products) ? r.data.products : []
+      if (products.length === 0) break
+
+      const rows = products.map((p) => ({
+        brand_id: brandId,
+        product_no: String(p.product_no ?? p.product_code ?? ''),
+        product_name: String(p.product_name ?? ''),
+        selling_price: Number(p.price ?? 0),
+        supply_price: Number(p.supply_price ?? 0),
+        retail_price: Number(p.retail_price ?? 0),
+        display: p.display === 'T',
+        selling: p.selling === 'T',
+        synced_at: new Date().toISOString(),
+      }))
+
+      const { error: upsertErr, count } = await admin
+        .from('catalog_products')
+        .upsert(rows, { onConflict: 'brand_id,product_no', count: 'exact' })
+
+      if (upsertErr) {
+        return {
+          ok: false,
+          error: `catalog_products upsert 실패: ${upsertErr.message}`,
+          retryable: true,
+        }
+      }
+
+      totalUpserted += count ?? rows.length
+
+      const hasNext = Array.isArray(r.data?.links) && r.data.links.some((l) => l.rel === 'next')
+      if (!hasNext) break
+      offset += limit
+    }
+
+    return { ok: true, rowsUpserted: totalUpserted }
+  },
 }
 
 const smartstoreAdapter = {

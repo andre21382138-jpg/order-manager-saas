@@ -31,20 +31,21 @@ export function DailyTable({ data, isLoading }: { data: DailyRow[]; isLoading: b
                 <th className="py-2 pr-4 text-right">클릭</th>
                 <th className="py-2 pr-4 text-right">CTR</th>
                 <th className="py-2 pr-4 text-right">CPC</th>
+                <th className="py-2 pr-4 text-right">전환수</th>
                 <th className="py-2 pr-4 text-right">전환매출</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={7} className="py-4 text-center text-muted-foreground">
+                  <td colSpan={8} className="py-4 text-center text-muted-foreground">
                     로딩 중...
                   </td>
                 </tr>
               )}
               {!isLoading && data.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-4 text-center text-muted-foreground">
+                  <td colSpan={8} className="py-4 text-center text-muted-foreground">
                     데이터 없음
                   </td>
                 </tr>
@@ -57,6 +58,7 @@ export function DailyTable({ data, isLoading }: { data: DailyRow[]; isLoading: b
                   <td className="py-2 pr-4 text-right">{fmt(r.clicks)}</td>
                   <td className="py-2 pr-4 text-right">{ctr(r)}</td>
                   <td className="py-2 pr-4 text-right">{cpc(r)}</td>
+                  <td className="py-2 pr-4 text-right">{fmt(r.conversions)}</td>
                   <td className="py-2 pr-4 text-right">₩{fmt(r.conversion_revenue)}</td>
                 </tr>
               ))}

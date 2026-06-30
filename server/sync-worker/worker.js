@@ -78,7 +78,7 @@ async function pollOnce() {
     // brand_credentials 조회
     const { data: cred, error: credErr } = await admin
       .from('brand_credentials')
-      .select('id, brand_id, channel, channel_account, secret_id')
+      .select('id, brand_id, channel, channel_account, secret_id, metadata')
       .eq('id', job.credential_id)
       .single()
     if (credErr || !cred) {
@@ -125,15 +125,42 @@ async function pollOnce() {
     const result = await method(creds, ctx)
 
     if (result.ok) {
-      await markCompleted(job.id, {
-        rowsUpserted: result.rowsUpserted ?? 0,
-        ...(result.meta ?? {}),
-      })
-      await admin
-        .from('brand_credentials')
-        .update({ last_synced_at: new Date().toISOString() })
-        .eq('id', cred.id)
-      log('INFO', `job ${job.id} completed (rows: ${result.rowsUpserted ?? 0})`)
+      // Plan 5: token_refresh 결과면 Vault + metadata 갱신
+      if (job.job_type === 'token_refresh') {
+        const { error: vaultUpdErr } = await admin.rpc('update_vault_secret', {
+          secret_id: cred.secret_id,
+          new_secret: JSON.stringify(result.newPayload),
+        })
+        if (vaultUpdErr) {
+          await markFailed(job.id, job.retry_count, `vault update failed: ${vaultUpdErr.message}`, true)
+          log('ERROR', `job ${job.id} vault update failed`, { msg: vaultUpdErr.message })
+          return
+        }
+        const newMetadata = {
+          ...(cred.metadata ?? {}),
+          expires_at: result.newPayload.expiresAt,
+        }
+        await admin
+          .from('brand_credentials')
+          .update({ metadata: newMetadata })
+          .eq('id', cred.id)
+        await markCompleted(job.id, { refreshed: true, ...(result.meta ?? {}) })
+        await admin
+          .from('brand_credentials')
+          .update({ last_synced_at: new Date().toISOString() })
+          .eq('id', cred.id)
+        log('INFO', `job ${job.id} token refreshed (expires_at: ${result.newPayload.expiresAt})`)
+      } else {
+        await markCompleted(job.id, {
+          rowsUpserted: result.rowsUpserted ?? 0,
+          ...(result.meta ?? {}),
+        })
+        await admin
+          .from('brand_credentials')
+          .update({ last_synced_at: new Date().toISOString() })
+          .eq('id', cred.id)
+        log('INFO', `job ${job.id} completed (rows: ${result.rowsUpserted ?? 0})`)
+      }
     } else {
       await markFailed(job.id, job.retry_count, result.error, result.retryable)
       log('WARN', `job ${job.id} failed`, { error: result.error })

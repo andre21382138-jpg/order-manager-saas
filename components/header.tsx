@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createServerClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import { BrandSwitcher } from '@/components/brand-switcher'
@@ -15,7 +16,7 @@ export async function Header({ currentBrandId }: { currentBrandId?: string }) {
     <header className="border-b bg-white">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
         <div className="flex items-center gap-4">
-          <div className="font-bold">Order Manager SaaS</div>
+          <Link href="/brands" className="font-bold hover:underline">주문 &amp; 광고수집</Link>
           {brands.length > 0 && (
             <BrandSwitcher currentBrandId={currentBrandId ?? null} brands={brands} />
           )}

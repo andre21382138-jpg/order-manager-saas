@@ -65,7 +65,7 @@ async function pollOnce() {
       log('ERROR', 'pick_pending_job failed', { msg: error.message })
       return
     }
-    if (!data) return // no pending job
+    if (!data || !data.id) return // no pending job (Supabase RPC returns row-of-nulls when empty)
     job = data
   } catch (e) {
     log('ERROR', 'pick_pending_job exception', { msg: e.message })

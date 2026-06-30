@@ -929,7 +929,131 @@ const naverAdAdapter = {
     }
   },
 
-  // syncAdUnits — Task 4에서 추가
+  async syncAdUnits(creds, ctx) {
+    const { customerId, accessLicense, secretKey } = creds
+    const brandId = ctx.brandId
+    const channelAccount = ctx.channelAccount
+    if (!customerId || !accessLicense || !secretKey || !brandId || !channelAccount) {
+      return { ok: false, error: 'syncAdUnits: 필수 인자 누락', retryable: false }
+    }
+
+    const { createAdminClient } = require('./supabase')
+    const admin = createAdminClient()
+
+    const warnings = []
+
+    // 1. campaigns
+    const campResp = await naverAdGet('/ncc/campaigns', null, { customerId, accessLicense, secretKey })
+    if (campResp.status === 401) return { ok: false, error: 'naver_ad 인증 실패 (401, campaigns)', retryable: true }
+    if (campResp.status !== 200) {
+      return { ok: false, error: `campaigns 조회 실패 (${campResp.status})`, retryable: true }
+    }
+    const campaignList = Array.isArray(campResp.data) ? campResp.data : []
+    const allCampaignIds = campaignList.map((c) => c.nccCampaignId).filter(Boolean)
+    const idToCampaign = {}
+    for (const c of campaignList) {
+      if (c.nccCampaignId) idToCampaign[c.nccCampaignId] = { name: c.name || c.nccCampaignId, type: c.campaignTp || null }
+    }
+
+    // 2. adgroups per campaign (전체)
+    const adgroupList = []
+    const idToAdgroup = {}
+    for (const cid of allCampaignIds) {
+      const r = await naverAdGet('/ncc/adgroups', { nccCampaignId: cid }, { customerId, accessLicense, secretKey })
+      if (r.status !== 200) { warnings.push({ stage: 'adgroups', cid, status: r.status }); continue }
+      const arr = Array.isArray(r.data) ? r.data : []
+      for (const g of arr) {
+        if (g.nccAdgroupId) {
+          adgroupList.push(g)
+          idToAdgroup[g.nccAdgroupId] = { name: g.name || g.nccAdgroupId, campaign_id: g.nccCampaignId || cid }
+        }
+      }
+    }
+
+    // 3. keywords per adgroup (전체)
+    const keywordList = []
+    const idToKeyword = {}
+    for (const g of adgroupList) {
+      const r = await naverAdGet('/ncc/keywords', { nccAdgroupId: g.nccAdgroupId }, { customerId, accessLicense, secretKey })
+      if (r.status !== 200) { warnings.push({ stage: 'keywords', gid: g.nccAdgroupId, status: r.status }); continue }
+      const arr = Array.isArray(r.data) ? r.data : []
+      for (const k of arr) {
+        if (k.nccKeywordId) {
+          keywordList.push(k)
+          idToKeyword[k.nccKeywordId] = { name: k.keyword || k.nccKeywordId, adgroup_id: k.nccAdgroupId || g.nccAdgroupId }
+        }
+      }
+    }
+
+    // 4. ad_units upsert — campaign 먼저
+    const campaignRows = allCampaignIds.map((cid) => ({
+      brand_id: brandId,
+      channel: 'naver_ad',
+      channel_account: channelAccount,
+      external_id: cid,
+      external_name: idToCampaign[cid]?.name || cid,
+      level: 'campaign',
+      parent_id: null,
+      metadata: { type: idToCampaign[cid]?.type || null },
+      active: true,
+    }))
+
+    const { data: savedCampaigns, error: campErr } = await admin
+      .from('ad_units')
+      .upsert(campaignRows, { onConflict: 'brand_id,channel,external_id' })
+      .select('id, external_id')
+    if (campErr) {
+      return { ok: false, error: `ad_units (campaign) upsert 실패: ${campErr.message}`, retryable: true }
+    }
+    const campaignDbIdMap = {}
+    for (const row of (savedCampaigns || [])) campaignDbIdMap[row.external_id] = row.id
+
+    // keyword rows
+    const keywordRows = []
+    for (const k of keywordList) {
+      const kw = idToKeyword[k.nccKeywordId]
+      if (!kw) continue
+      const ag = idToAdgroup[kw.adgroup_id]
+      if (!ag) continue
+      const parentDbId = campaignDbIdMap[ag.campaign_id]
+      if (!parentDbId) continue
+      keywordRows.push({
+        brand_id: brandId,
+        channel: 'naver_ad',
+        channel_account: channelAccount,
+        external_id: k.nccKeywordId,
+        external_name: kw.name,
+        level: 'keyword',
+        parent_id: parentDbId,
+        metadata: { ad_group_id: kw.adgroup_id, ad_group_name: ag.name },
+        active: true,
+      })
+    }
+
+    let savedKeywords = []
+    if (keywordRows.length > 0) {
+      const { data, error: kwErr } = await admin
+        .from('ad_units')
+        .upsert(keywordRows, { onConflict: 'brand_id,channel,external_id' })
+        .select('id, external_id')
+      if (kwErr) {
+        return { ok: false, error: `ad_units (keyword) upsert 실패: ${kwErr.message}`, retryable: true }
+      }
+      savedKeywords = data || []
+    }
+
+    const totalUpserted = (savedCampaigns?.length || 0) + savedKeywords.length
+
+    return {
+      ok: true,
+      rowsUpserted: totalUpserted,
+      meta: {
+        campaign_count: savedCampaigns?.length || 0,
+        keyword_count: savedKeywords.length,
+        warnings_count: warnings.length,
+      },
+    }
+  },
 }
 
 const adapters = {

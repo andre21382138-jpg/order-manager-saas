@@ -2,6 +2,7 @@
 // 각 어댑터는 channel 식별자만 가지고 sync 메서드는 모두 없음 → worker가 skip
 
 const https = require('https')
+const bcrypt = require('bcryptjs')
 
 function yesterdayKST() {
   const d = new Date(Date.now() + 9 * 60 * 60 * 1000 - 86400000)
@@ -11,6 +12,45 @@ function yesterdayKST() {
 function todayKST() {
   const d = new Date(Date.now() + 9 * 60 * 60 * 1000)
   return d.toISOString().slice(0, 10)
+}
+
+// 스마트스토어 access_token in-process 캐시 (Plan 6)
+const smartstoreTokenCache = new Map() // key = clientId, value = { accessToken, expiresAt (ms epoch) }
+
+async function getSmartstoreToken(clientId, clientSecret) {
+  const cached = smartstoreTokenCache.get(clientId)
+  if (cached && cached.expiresAt > Date.now() + 5 * 60 * 1000) {
+    return cached.accessToken
+  }
+
+  const timestamp = Date.now()
+  const password = `${clientId}_${timestamp}`
+  const hashed = bcrypt.hashSync(password, clientSecret)
+  const sign = Buffer.from(hashed).toString('base64')
+  const body = new URLSearchParams({
+    client_id: clientId,
+    timestamp: String(timestamp),
+    client_secret_sign: sign,
+    grant_type: 'client_credentials',
+    type: 'SELF',
+  }).toString()
+
+  const r = await httpsRequest(
+    'https://api.commerce.naver.com/external/v1/oauth2/token',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    },
+    body
+  )
+
+  if (r.status !== 200 || !r.data?.access_token) {
+    throw new Error(`smartstore token 발급 실패 (${r.status}): ${JSON.stringify(r.data).slice(0, 200)}`)
+  }
+  const expiresIn = Number(r.data.expires_in ?? 3600)
+  const expiresAt = Date.now() + expiresIn * 1000
+  smartstoreTokenCache.set(clientId, { accessToken: r.data.access_token, expiresAt })
+  return r.data.access_token
 }
 
 function httpsRequest(url, options = {}, body = null) {

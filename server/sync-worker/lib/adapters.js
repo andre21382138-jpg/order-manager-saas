@@ -565,7 +565,371 @@ const smartstoreAdapter = {
 
 const naverAdAdapter = {
   channel: 'naver_ad',
-  // syncAdStats/syncAdUnits — Plan 7에서 구현
+
+  async syncAdStats(creds, ctx) {
+    const { customerId, accessLicense, secretKey } = creds
+    const brandId = ctx.brandId
+    const channelAccount = ctx.channelAccount
+    if (!customerId || !accessLicense || !secretKey || !brandId || !channelAccount) {
+      return { ok: false, error: 'syncAdStats: 필수 인자 누락', retryable: false }
+    }
+
+    const { createAdminClient } = require('./supabase')
+    const admin = createAdminClient()
+
+    // 1. 날짜 범위 결정
+    const startDate = ctx.dateRangeStart || yesterdayKST()
+    const endDate = ctx.dateRangeEnd || ctx.dateRangeStart || yesterdayKST()
+    const days = []
+    {
+      let cursor = new Date(`${startDate}T00:00:00Z`)
+      const endD = new Date(`${endDate}T00:00:00Z`)
+      while (cursor <= endD) {
+        days.push(cursor.toISOString().slice(0, 10))
+        cursor = new Date(cursor.getTime() + 86400000)
+      }
+    }
+
+    const warnings = []
+
+    // 2. /ncc/campaigns
+    const campResp = await naverAdGet('/ncc/campaigns', null, { customerId, accessLicense, secretKey })
+    if (campResp.status === 401) {
+      return { ok: false, error: 'naver_ad 인증 실패 (401, campaigns)', retryable: true }
+    }
+    if (campResp.status !== 200) {
+      return {
+        ok: false,
+        error: `campaigns 조회 실패 (${campResp.status}): ${JSON.stringify(campResp.data).slice(0, 200)}`,
+        retryable: true,
+      }
+    }
+    const campaignList = Array.isArray(campResp.data) ? campResp.data : []
+    if (campaignList.length === 0) {
+      return { ok: true, rowsUpserted: 0, meta: { ad_units_upserted: 0, ad_stats_upserted: 0, skipped_count: 0, warnings_count: 0 } }
+    }
+    const allCampaignIds = campaignList.map((c) => c.nccCampaignId).filter(Boolean)
+    const idToCampaign = {}
+    for (const c of campaignList) {
+      if (c.nccCampaignId) idToCampaign[c.nccCampaignId] = { name: c.name || c.nccCampaignId, type: c.campaignTp || null }
+    }
+
+    // 3. days × campaign /stats — 전 캠페인 (cost=0 포함)
+    const fields5 = JSON.stringify(['impCnt', 'clkCnt', 'salesAmt', 'ccnt', 'convAmt'])
+    const fieldsCost = JSON.stringify(['salesAmt'])
+    const campaignStatsByDay = {} // {day: {nccCampaignId: {impressions, clicks, cost, conversions, conversion_revenue}}}
+    const sumCostByCampaign = {}
+    const campChunks = chunkArray(allCampaignIds, 100)
+    for (const day of days) {
+      campaignStatsByDay[day] = {}
+      for (const chunk of campChunks) {
+        const r = await naverAdGet(
+          '/stats',
+          {
+            ids: chunk.join(','),
+            fields: fields5,
+            timeRange: JSON.stringify({ since: day, until: day }),
+            datePreset: 'custom',
+          },
+          { customerId, accessLicense, secretKey }
+        )
+        if (r.status === 401) return { ok: false, error: 'naver_ad 인증 실패 (401, campaign stats)', retryable: true }
+        if (r.status !== 200) {
+          return { ok: false, error: `campaign stats 조회 실패 (${day}, ${r.status})`, retryable: true }
+        }
+        for (const it of (r.data?.data || [])) {
+          const cost = Number(it.salesAmt || 0)
+          campaignStatsByDay[day][it.id] = {
+            impressions: Number(it.impCnt || 0),
+            clicks: Number(it.clkCnt || 0),
+            cost,
+            conversions: Number(it.ccnt || 0),
+            conversion_revenue: Number(it.convAmt || 0),
+          }
+          sumCostByCampaign[it.id] = (sumCostByCampaign[it.id] || 0) + cost
+        }
+      }
+    }
+    const activeCampaignIds = Object.keys(sumCostByCampaign).filter((id) => sumCostByCampaign[id] > 0)
+
+    // 4. activeCampaignIds 별 /ncc/adgroups sequential
+    const adgroupList = []
+    const idToAdgroup = {} // adgroupId → {name, campaign_id}
+    for (const cid of activeCampaignIds) {
+      const r = await naverAdGet('/ncc/adgroups', { nccCampaignId: cid }, { customerId, accessLicense, secretKey })
+      if (r.status === 401) return { ok: false, error: 'naver_ad 인증 실패 (401, adgroups)', retryable: true }
+      if (r.status !== 200) {
+        warnings.push({ stage: 'adgroups', cid, status: r.status })
+        continue
+      }
+      const arr = Array.isArray(r.data) ? r.data : []
+      for (const g of arr) {
+        if (g.nccAdgroupId) {
+          adgroupList.push(g)
+          idToAdgroup[g.nccAdgroupId] = { name: g.name || g.nccAdgroupId, campaign_id: g.nccCampaignId || cid }
+        }
+      }
+    }
+    const allAdgroupIds = adgroupList.map((g) => g.nccAdgroupId).filter(Boolean)
+
+    // 5. adgroup ids chunk /stats 기간 합산 — activeAdgroupIds
+    let activeAdgroupIds = []
+    if (allAdgroupIds.length > 0) {
+      const adgroupChunks = chunkArray(allAdgroupIds, 100)
+      const adgroupCost = {}
+      for (const chunk of adgroupChunks) {
+        const r = await naverAdGet(
+          '/stats',
+          {
+            ids: chunk.join(','),
+            fields: fieldsCost,
+            timeRange: JSON.stringify({ since: startDate, until: endDate }),
+            datePreset: 'custom',
+          },
+          { customerId, accessLicense, secretKey }
+        )
+        if (r.status === 401) return { ok: false, error: 'naver_ad 인증 실패 (401, adgroup stats)', retryable: true }
+        if (r.status !== 200) {
+          return { ok: false, error: `adgroup stats 조회 실패 (${r.status})`, retryable: true }
+        }
+        for (const it of (r.data?.data || [])) {
+          adgroupCost[it.id] = (adgroupCost[it.id] || 0) + Number(it.salesAmt || 0)
+        }
+      }
+      activeAdgroupIds = Object.keys(adgroupCost).filter((id) => adgroupCost[id] > 0)
+    }
+
+    // 6. activeAdgroupIds 별 /ncc/keywords sequential
+    const keywordList = []
+    const idToKeyword = {} // keywordId → {name, adgroup_id}
+    for (const gid of activeAdgroupIds) {
+      const r = await naverAdGet('/ncc/keywords', { nccAdgroupId: gid }, { customerId, accessLicense, secretKey })
+      if (r.status === 401) return { ok: false, error: 'naver_ad 인증 실패 (401, keywords)', retryable: true }
+      if (r.status !== 200) {
+        warnings.push({ stage: 'keywords', gid, status: r.status })
+        continue
+      }
+      const arr = Array.isArray(r.data) ? r.data : []
+      for (const k of arr) {
+        if (k.nccKeywordId) {
+          keywordList.push(k)
+          idToKeyword[k.nccKeywordId] = { name: k.keyword || k.nccKeywordId, adgroup_id: k.nccAdgroupId || gid }
+        }
+      }
+    }
+    const allKeywordIds = keywordList.map((k) => k.nccKeywordId).filter(Boolean)
+
+    // 7. keyword ids chunk /stats 기간 합산 — activeKeywordIds
+    let activeKeywordIds = []
+    if (allKeywordIds.length > 0) {
+      const kwChunks = chunkArray(allKeywordIds, 100)
+      const kwCost = {}
+      for (const chunk of kwChunks) {
+        const r = await naverAdGet(
+          '/stats',
+          {
+            ids: chunk.join(','),
+            fields: fieldsCost,
+            timeRange: JSON.stringify({ since: startDate, until: endDate }),
+            datePreset: 'custom',
+          },
+          { customerId, accessLicense, secretKey }
+        )
+        if (r.status === 401) return { ok: false, error: 'naver_ad 인증 실패 (401, keyword period stats)', retryable: true }
+        if (r.status !== 200) {
+          return { ok: false, error: `keyword period stats 조회 실패 (${r.status})`, retryable: true }
+        }
+        for (const it of (r.data?.data || [])) {
+          kwCost[it.id] = (kwCost[it.id] || 0) + Number(it.salesAmt || 0)
+        }
+      }
+      activeKeywordIds = Object.keys(kwCost).filter((id) => kwCost[id] > 0)
+    }
+
+    // 8. days × activeKeyword chunk /stats full stats
+    const keywordStatsByDay = {} // {day: {keywordId: {impressions, clicks, cost, ...}}}
+    let kwStatTasks = 0
+    let kwStatFails = 0
+    if (activeKeywordIds.length > 0) {
+      const kwChunks = chunkArray(activeKeywordIds, 100)
+      for (const day of days) {
+        keywordStatsByDay[day] = {}
+        for (const chunk of kwChunks) {
+          kwStatTasks++
+          const r = await naverAdGet(
+            '/stats',
+            {
+              ids: chunk.join(','),
+              fields: fields5,
+              timeRange: JSON.stringify({ since: day, until: day }),
+              datePreset: 'custom',
+            },
+            { customerId, accessLicense, secretKey }
+          )
+          if (r.status === 401) return { ok: false, error: 'naver_ad 인증 실패 (401, keyword day stats)', retryable: true }
+          if (r.status !== 200) {
+            kwStatFails++
+            warnings.push({ stage: 'keyword_stats', day, status: r.status })
+            continue
+          }
+          for (const it of (r.data?.data || [])) {
+            const cost = Number(it.salesAmt || 0)
+            if (cost > 0) {
+              keywordStatsByDay[day][it.id] = {
+                impressions: Number(it.impCnt || 0),
+                clicks: Number(it.clkCnt || 0),
+                cost,
+                conversions: Number(it.ccnt || 0),
+                conversion_revenue: Number(it.convAmt || 0),
+              }
+            }
+          }
+        }
+      }
+    }
+    if (kwStatTasks > 0 && kwStatFails / kwStatTasks > 0.3) {
+      return {
+        ok: false,
+        error: `keyword_stats 실패율 과다: ${kwStatFails}/${kwStatTasks}`,
+        retryable: true,
+      }
+    }
+
+    // 9-10. ad_units upsert (campaign 먼저, keyword는 parent_id 매핑)
+    const campaignAdUnitRows = allCampaignIds.map((cid) => ({
+      brand_id: brandId,
+      channel: 'naver_ad',
+      channel_account: channelAccount,
+      external_id: cid,
+      external_name: idToCampaign[cid]?.name || cid,
+      level: 'campaign',
+      parent_id: null,
+      metadata: { type: idToCampaign[cid]?.type || null },
+      active: true,
+    }))
+
+    const { data: savedCampaigns, error: campUpsertErr } = await admin
+      .from('ad_units')
+      .upsert(campaignAdUnitRows, { onConflict: 'brand_id,channel,external_id' })
+      .select('id, external_id')
+
+    if (campUpsertErr) {
+      return { ok: false, error: `ad_units (campaign) upsert 실패: ${campUpsertErr.message}`, retryable: true }
+    }
+    const campaignDbIdMap = {}
+    for (const row of (savedCampaigns || [])) campaignDbIdMap[row.external_id] = row.id
+
+    // keyword rows
+    const keywordAdUnitRows = []
+    for (const kid of allKeywordIds) {
+      const kw = idToKeyword[kid]
+      if (!kw) continue
+      const ag = idToAdgroup[kw.adgroup_id]
+      if (!ag) continue
+      const parentDbId = campaignDbIdMap[ag.campaign_id]
+      if (!parentDbId) continue // campaign이 ad_units에 없으면 skip (드물지만 safety)
+      keywordAdUnitRows.push({
+        brand_id: brandId,
+        channel: 'naver_ad',
+        channel_account: channelAccount,
+        external_id: kid,
+        external_name: kw.name,
+        level: 'keyword',
+        parent_id: parentDbId,
+        metadata: { ad_group_id: kw.adgroup_id, ad_group_name: ag.name },
+        active: true,
+      })
+    }
+
+    let savedKeywords = []
+    if (keywordAdUnitRows.length > 0) {
+      const { data, error: kwUpsertErr } = await admin
+        .from('ad_units')
+        .upsert(keywordAdUnitRows, { onConflict: 'brand_id,channel,external_id' })
+        .select('id, external_id')
+      if (kwUpsertErr) {
+        return { ok: false, error: `ad_units (keyword) upsert 실패: ${kwUpsertErr.message}`, retryable: true }
+      }
+      savedKeywords = data || []
+    }
+    const keywordDbIdMap = {}
+    for (const row of savedKeywords) keywordDbIdMap[row.external_id] = row.id
+
+    const adUnitsUpserted = (savedCampaigns?.length || 0) + savedKeywords.length
+
+    // 11. ad_stats upsert (campaign 전부 + keyword 일별 cost > 0)
+    const statRows = []
+    let skipped = 0
+    for (const day of days) {
+      // campaign stats — 전부 (cost=0 포함)
+      for (const cid of allCampaignIds) {
+        const unitDb = campaignDbIdMap[cid]
+        if (!unitDb) { skipped++; continue }
+        const s = campaignStatsByDay[day]?.[cid] || { impressions: 0, clicks: 0, cost: 0, conversions: 0, conversion_revenue: 0 }
+        statRows.push({
+          brand_id: brandId,
+          ad_unit_id: unitDb,
+          date: day,
+          impressions: s.impressions,
+          clicks: s.clicks,
+          cost: s.cost,
+          conversions: s.conversions,
+          conversion_revenue: s.conversion_revenue,
+          metadata: {},
+        })
+      }
+      // keyword stats — 일별 cost > 0만
+      const dayKwStats = keywordStatsByDay[day] || {}
+      for (const kid of Object.keys(dayKwStats)) {
+        const unitDb = keywordDbIdMap[kid]
+        if (!unitDb) { skipped++; continue }
+        const s = dayKwStats[kid]
+        statRows.push({
+          brand_id: brandId,
+          ad_unit_id: unitDb,
+          date: day,
+          impressions: s.impressions,
+          clicks: s.clicks,
+          cost: s.cost,
+          conversions: s.conversions,
+          conversion_revenue: s.conversion_revenue,
+          metadata: {},
+        })
+      }
+    }
+
+    let adStatsUpserted = 0
+    if (statRows.length > 0) {
+      const BATCH = 200
+      for (let i = 0; i < statRows.length; i += BATCH) {
+        const batch = statRows.slice(i, i + BATCH)
+        const { data, error: statErr } = await admin
+          .from('ad_stats')
+          .upsert(batch, { onConflict: 'ad_unit_id,date' })
+          .select('id')
+        if (statErr) {
+          return { ok: false, error: `ad_stats upsert 실패: ${statErr.message}`, retryable: true }
+        }
+        adStatsUpserted += data?.length || 0
+      }
+    }
+
+    return {
+      ok: true,
+      rowsUpserted: adStatsUpserted,
+      meta: {
+        ad_units_upserted: adUnitsUpserted,
+        ad_stats_upserted: adStatsUpserted,
+        skipped_count: skipped,
+        warnings_count: warnings.length,
+        days: days.length,
+        active_campaigns: activeCampaignIds.length,
+        active_keywords: activeKeywordIds.length,
+      },
+    }
+  },
+
+  // syncAdUnits — Task 4에서 추가
 }
 
 const adapters = {

@@ -216,16 +216,22 @@ const cafe24Adapter = {
       const orders = Array.isArray(r.data?.orders) ? r.data.orders : []
       if (orders.length === 0) break
 
-      const orderRows = orders.map((o) => ({
-        brand_id: brandId,
-        order_no: String(o.order_id ?? ''),
-        order_date: o.order_date ?? null,
-        payment_date: o.payment_date ?? null,
-        member_id: o.member_id ?? null,
-        total_amount: Number(o.actual_payment_amount ?? o.order_price_amount ?? 0),
-        status: o.order_status ?? '',
-        synced_at: new Date().toISOString(),
-      }))
+      const orderRows = orders.map((o) => {
+        const itemsArr = Array.isArray(o.items) ? o.items : []
+        const totalQty = itemsArr.reduce((sum, it) => sum + Number(it.quantity ?? 0), 0)
+        const cancelStatuses = ['CANCEL_DONE', 'RETURN_DONE', 'EXCHANGE_DONE', 'CANCEL_NOSHIPPING', 'CANCELED_BY_NOPAYMENT', 'CANCELED']
+        return {
+          brand_id: brandId,
+          mall_type: 'cafe24',
+          order_no: String(o.order_id ?? ''),
+          date: o.order_date ?? null,
+          total_amount: Number(o.actual_payment_amount ?? o.order_price_amount ?? 0),
+          total_qty: totalQty,
+          original_amount: Number(o.order_price_amount ?? 0),
+          is_cancelled: cancelStatuses.includes(o.order_status),
+          is_new: false,
+        }
+      })
 
       const { data: savedOrders, error: upsertErr } = await admin
         .from('orders')
@@ -250,11 +256,9 @@ const cafe24Adapter = {
 
         const itemRows = orig.items.map((it) => ({
           order_id: saved.id,
-          product_no: String(it.product_no ?? it.product_code ?? ''),
-          variant_code: String(it.variants_code ?? ''),
           product_name: String(it.product_name ?? ''),
-          quantity: Number(it.quantity ?? 0),
-          price: Number(it.product_price ?? 0),
+          qty: Number(it.quantity ?? 0),
+          amount: Number(it.product_price ?? 0),
         }))
 
         if (itemRows.length > 0) {

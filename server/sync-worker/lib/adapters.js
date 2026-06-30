@@ -170,7 +170,8 @@ const cafe24Adapter = {
   async syncOrders(creds, ctx) {
     const { mallId, accessToken } = creds
     const brandId = ctx.brandId
-    if (!mallId || !accessToken || !brandId) {
+    const channelAccount = ctx.channelAccount
+    if (!mallId || !accessToken || !brandId || !channelAccount) {
       return { ok: false, error: 'syncOrders: 필수 인자 누락', retryable: false }
     }
 
@@ -222,7 +223,7 @@ const cafe24Adapter = {
         const cancelStatuses = ['CANCEL_DONE', 'RETURN_DONE', 'EXCHANGE_DONE', 'CANCEL_NOSHIPPING', 'CANCELED_BY_NOPAYMENT', 'CANCELED']
         return {
           brand_id: brandId,
-          mall_type: 'cafe24',
+          mall_type: channelAccount,
           order_no: String(o.order_id ?? ''),
           date: o.order_date ?? null,
           total_amount: Number(o.actual_payment_amount ?? o.order_price_amount ?? 0),

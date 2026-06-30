@@ -135,12 +135,14 @@ const cafe24Adapter = {
         brand_id: brandId,
         product_no: String(p.product_no ?? p.product_code ?? ''),
         product_name: String(p.product_name ?? ''),
-        selling_price: Number(p.price ?? 0),
+        price: Number(p.price ?? 0),
         supply_price: Number(p.supply_price ?? 0),
         retail_price: Number(p.retail_price ?? 0),
-        display: p.display === 'T',
-        selling: p.selling === 'T',
-        synced_at: new Date().toISOString(),
+        small_image: String(p.list_image ?? p.small_image ?? p.detail_image ?? ''),
+        summary_description: String(p.summary_description ?? ''),
+        manufacturer: String(p.manufacturer_code ?? p.manufacturer_name ?? ''),
+        weight: Number(p.product_weight ?? 0),
+        updated_at: new Date().toISOString(),
       }))
 
       const { error: upsertErr, count } = await admin

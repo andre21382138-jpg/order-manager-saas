@@ -53,6 +53,8 @@ async function getSmartstoreToken(clientId, clientSecret) {
   return r.data.access_token
 }
 
+const CANCEL_STATUSES = ['CANCEL_DONE', 'RETURN_DONE', 'EXCHANGE_DONE', 'CANCEL_NOSHIPPING', 'CANCELED_BY_NOPAYMENT', 'CANCELED']
+
 function httpsRequest(url, options = {}, body = null) {
   return new Promise((resolve, reject) => {
     const urlObj = new URL(url)
@@ -329,7 +331,205 @@ const cafe24Adapter = {
 
 const smartstoreAdapter = {
   channel: 'smartstore',
-  // syncOrders/syncProducts — Plan 6에서 구현
+
+  async syncOrders(creds, ctx) {
+    const { clientId, clientSecret } = creds
+    const brandId = ctx.brandId
+    const channelAccount = ctx.channelAccount
+    if (!clientId || !clientSecret || !brandId || !channelAccount) {
+      return { ok: false, error: 'syncOrders: 필수 인자 누락', retryable: false }
+    }
+
+    const { createAdminClient } = require('./supabase')
+    const admin = createAdminClient()
+
+    let accessToken
+    try {
+      accessToken = await getSmartstoreToken(clientId, clientSecret)
+    } catch (e) {
+      return { ok: false, error: e.message, retryable: true }
+    }
+
+    const startDate = ctx.dateRangeStart || yesterdayKST()
+    const endDate = ctx.dateRangeEnd || todayKST()
+
+    // 일별 chunk 생성
+    const chunks = []
+    let cursor = new Date(startDate)
+    const endD = new Date(endDate)
+    while (cursor <= endD) {
+      chunks.push(cursor.toISOString().slice(0, 10))
+      cursor = new Date(cursor.getTime() + 86400000)
+    }
+
+    const allDetails = []
+    for (const day of chunks) {
+      const fromRaw = `${day}T00:00:00.000+09:00`
+      const toRaw = `${day}T23:59:59.999+09:00`
+      const from = encodeURIComponent(fromRaw).replace(/%2B/g, '%2B') // ensure + is encoded
+      const to = encodeURIComponent(toRaw)
+      const uri = `/external/v1/pay-order/seller/product-orders?from=${from}&to=${to}&limitCount=300`
+      let r
+      try {
+        r = await httpsRequest(
+          `https://api.commerce.naver.com${uri}`,
+          {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${accessToken}` },
+          }
+        )
+      } catch (e) {
+        return { ok: false, error: `smartstore orders 호출 실패 (${day}): ${e.message}`, retryable: true }
+      }
+
+      if (r.status === 401) {
+        // 캐시 무효화 → 다음 polling에서 재발급
+        smartstoreTokenCache.delete(clientId)
+        return { ok: false, error: 'smartstore access_token 만료 (401)', retryable: true }
+      }
+      if (r.status !== 200) {
+        return {
+          ok: false,
+          error: `smartstore API 에러 (${r.status}, ${day}): ${JSON.stringify(r.data).slice(0, 200)}`,
+          retryable: true,
+        }
+      }
+
+      const items = Array.isArray(r.data?.data?.contents) ? r.data.data.contents
+                  : Array.isArray(r.data?.data) ? r.data.data
+                  : []
+      allDetails.push(...items)
+      // 다음 day fetch 전 짧은 sleep (rate limit 안전)
+      await new Promise((resolve) => setTimeout(resolve, 300))
+    }
+
+    if (allDetails.length === 0) {
+      return { ok: true, rowsUpserted: 0, meta: { items_inserted: 0 } }
+    }
+
+    // orderId로 그룹핑 (sync.js 라인 117~167 패턴)
+    const orderMap = new Map()
+    for (const detail of allDetails) {
+      const po = detail.content?.productOrder || detail.productOrder
+      const order = detail.content?.order || detail.order
+      if (!po || !order) continue
+      const orderId = order.orderId
+      const isCancelled = CANCEL_STATUSES.includes(po.productOrderStatus)
+      const paymentDate = (order.paymentDate || '').slice(0, 10)
+
+      if (!orderMap.has(orderId)) {
+        orderMap.set(orderId, {
+          order_id: orderId,
+          order_date: paymentDate,
+          canceled: 'F',
+          first_order: order.firstOrderYn === 'Y' ? 'T' : 'F',
+          actual_amount: 0,
+          initial_amount: 0,
+          actual_original: 0,
+          initial_original: 0,
+          items: [],
+        })
+      }
+
+      const grp = orderMap.get(orderId)
+      const qty = Number(po.quantity || 1)
+      const unitPrice = Number(po.unitPrice || 0)
+      const totalPayAmt = Number(po.totalPaymentAmount || 0)
+      const sellerStoreDc = Number(po.sellerBurdenStoreDiscountAmount || 0)
+      const naverProdDc = Math.max(
+        0,
+        Number(po.productProductDiscountAmount || 0) - Number(po.sellerBurdenProductDiscountAmount || 0)
+      )
+      const totalAmt = totalPayAmt + sellerStoreDc + naverProdDc
+
+      grp.items.push({
+        product_no: String(po.productId || ''),
+        product_name: po.productName || '상품',
+        quantity: qty,
+        order_price_amount: unitPrice,
+      })
+
+      if (isCancelled) {
+        grp.initial_amount += totalAmt
+        grp.initial_original += unitPrice * qty
+        grp.canceled = 'T'
+      } else {
+        grp.actual_amount += totalAmt
+        grp.actual_original += unitPrice * qty
+      }
+    }
+
+    const groupedOrders = Array.from(orderMap.values())
+
+    // upsert (sync.js 라인 174~210 패턴)
+    let totalOrdersUpserted = 0
+    let totalItemsInserted = 0
+    const BATCH = 50
+
+    for (let i = 0; i < groupedOrders.length; i += BATCH) {
+      const batch = groupedOrders.slice(i, i + BATCH)
+      const orderRows = batch.map((o) => {
+        const isCancelled = o.canceled === 'T'
+        const isNew = o.first_order === 'T'
+        return {
+          brand_id: brandId,
+          mall_type: channelAccount,
+          order_no: String(o.order_id),
+          date: o.order_date,
+          total_amount: isCancelled ? o.initial_amount : o.actual_amount,
+          original_amount: isCancelled ? o.initial_original : o.actual_original,
+          is_cancelled: isCancelled,
+          is_new: isNew,
+          total_qty: o.items.reduce((s, it) => s + Number(it.quantity ?? 0), 0) || 1,
+          note: `${channelAccount} 자동수집`,
+        }
+      })
+
+      const { data: savedOrders, error: upsertErr } = await admin
+        .from('orders')
+        .upsert(orderRows, { onConflict: 'brand_id,order_no' })
+        .select('id, order_no')
+
+      if (upsertErr) {
+        return { ok: false, error: `orders upsert 실패: ${upsertErr.message}`, retryable: true }
+      }
+
+      totalOrdersUpserted += savedOrders?.length ?? 0
+
+      for (const saved of (savedOrders ?? [])) {
+        const orig = batch.find((o) => String(o.order_id) === saved.order_no)
+        if (!orig) continue
+
+        await admin.from('order_items').delete().eq('order_id', saved.id)
+
+        const items = orig.items.length > 0
+          ? orig.items
+          : [{ product_name: '상품', quantity: 1, order_price_amount: 0 }]
+
+        const itemRows = items.map((it) => ({
+          order_id: saved.id,
+          product_name: String(it.product_name ?? ''),
+          category: '',
+          qty: Number(it.quantity ?? 0),
+          amount: Number(it.order_price_amount ?? 0),
+        }))
+
+        if (itemRows.length > 0) {
+          const { error: itemErr } = await admin.from('order_items').insert(itemRows)
+          if (itemErr) {
+            return { ok: false, error: `order_items INSERT 실패: ${itemErr.message}`, retryable: true }
+          }
+          totalItemsInserted += itemRows.length
+        }
+      }
+    }
+
+    return {
+      ok: true,
+      rowsUpserted: totalOrdersUpserted,
+      meta: { items_inserted: totalItemsInserted },
+    }
+  },
 }
 
 const naverAdAdapter = {

@@ -294,16 +294,28 @@ const cafe24Adapter = {
         const itemsArr = Array.isArray(o.items) ? o.items : []
         const totalQty = itemsArr.reduce((sum, it) => sum + Number(it.quantity ?? 0), 0)
         const cancelStatuses = ['CANCEL_DONE', 'RETURN_DONE', 'EXCHANGE_DONE', 'CANCEL_NOSHIPPING', 'CANCELED_BY_NOPAYMENT', 'CANCELED']
+        const isCancelled = cancelStatuses.includes(o.order_status)
+        // 옛 운영 코드(src/App.js L1044~1052) 동일 매핑 — actual_order_amount / initial_order_amount 객체 안의 payment_amount / order_price_amount
+        const amountSource = isCancelled ? o.initial_order_amount : o.actual_order_amount
+        const rawPayment = Number(amountSource?.payment_amount ?? 0)
+        const originalAmount = Number(amountSource?.order_price_amount ?? 0)
+        // 네이버페이 포인트 보정 (payment_amount는 네이버포인트 제외값)
+        const isNaverPay = !isCancelled && o.order_place_id === 'NCHECKOUT'
+        const naverPoint = isNaverPay
+          ? (Number(o.naver_point ?? 0) || Math.max(0, originalAmount - rawPayment))
+          : 0
+        const totalAmount = rawPayment + naverPoint
         return {
           brand_id: brandId,
           mall_type: channelAccount,
           order_no: String(o.order_id ?? ''),
           date: o.order_date ?? null,
-          total_amount: Number(o.actual_payment_amount ?? o.order_price_amount ?? 0),
+          total_amount: totalAmount,
           total_qty: totalQty,
-          original_amount: Number(o.order_price_amount ?? 0),
-          is_cancelled: cancelStatuses.includes(o.order_status),
+          original_amount: originalAmount,
+          is_cancelled: isCancelled,
           is_new: false,
+          naver_amount: naverPoint,
         }
       })
 

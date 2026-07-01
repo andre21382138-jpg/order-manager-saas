@@ -1,5 +1,8 @@
 -- Plan 10 후속: get_orders_kpis 확장 — 고객 분석용 컬럼 추가
 -- 회원구매/비회원구매/회원신규/회원재구매
+-- return type 변경이라 DROP 먼저 필요
+
+DROP FUNCTION IF EXISTS get_orders_kpis(uuid, text, date, date);
 
 CREATE OR REPLACE FUNCTION get_orders_kpis(
   p_brand_id uuid,

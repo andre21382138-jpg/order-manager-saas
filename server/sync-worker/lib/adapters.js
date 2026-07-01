@@ -370,6 +370,105 @@ const cafe24Adapter = {
       meta: { items_inserted: totalItemsInserted },
     }
   },
+
+  async syncAnalytics(creds, ctx) {
+    const { mallId, accessToken } = creds
+    const brandId = ctx.brandId
+    const channelAccount = ctx.channelAccount
+    if (!mallId || !accessToken || !brandId || !channelAccount) {
+      return { ok: false, error: 'syncAnalytics: 필수 인자 누락', retryable: false }
+    }
+
+    // 기본 범위: 어제-30일 ~ 어제 (KST)
+    const endDate = ctx.dateRangeEnd || yesterdayKST()
+    const startDate =
+      ctx.dateRangeStart ||
+      (() => {
+        const d = new Date(new Date(endDate).getTime() - 30 * 86400000)
+        return d.toISOString().slice(0, 10)
+      })()
+
+    const base = 'https://ca-api.cafe24data.com'
+    const query = `mall_id=${mallId}&shop_no=1&start_date=${startDate}&end_date=${endDate}`
+    const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+
+    // 1. 일별 방문자 (visitors/view?date_type=date)
+    let visitDaily
+    try {
+      visitDaily = await httpsRequest(`${base}/visitors/view?${query}&date_type=date`, { method: 'GET', headers })
+    } catch (e) {
+      return { ok: false, error: `analytics visitors 호출 실패: ${e.message}`, retryable: true }
+    }
+    if (visitDaily.status === 401) return { ok: false, error: 'access_token 만료 (401 analytics)', retryable: true }
+    if (visitDaily.status !== 200) {
+      return {
+        ok: false,
+        error: `analytics visitors API 에러 (${visitDaily.status}): ${JSON.stringify(visitDaily.data).slice(0, 200)}`,
+        retryable: true,
+      }
+    }
+
+    // 2. 유입경로 (visitpaths/domains)
+    let inflows
+    try {
+      inflows = await httpsRequest(`${base}/visitpaths/domains?${query}`, { method: 'GET', headers })
+    } catch (e) {
+      return { ok: false, error: `analytics inflows 호출 실패: ${e.message}`, retryable: true }
+    }
+    if (inflows.status !== 200) {
+      return {
+        ok: false,
+        error: `analytics inflows API 에러 (${inflows.status})`,
+        retryable: true,
+      }
+    }
+
+    // 응답 파싱 (cafe24 analytics 응답 포맷: {count, visitors: [...]})
+    const dailyItems = Array.isArray(visitDaily.data?.visitors)
+      ? visitDaily.data.visitors
+      : Array.isArray(visitDaily.data?.data)
+      ? visitDaily.data.data
+      : []
+    const inflowItems = Array.isArray(inflows.data?.paths)
+      ? inflows.data.paths
+      : Array.isArray(inflows.data?.data)
+      ? inflows.data.data
+      : []
+    const inflowJson = inflowItems.slice(0, 50) // 상위 50개만 저장 (metadata jsonb 크기 제한)
+
+    const { createAdminClient } = require('./supabase')
+    const admin = createAdminClient()
+
+    const rows = dailyItems.map((it) => ({
+      brand_id: brandId,
+      channel_account: mallId,
+      mall_type: channelAccount,
+      date: it.date || it.stat_date || it.visit_date,
+      total_visits: Number(it.visit_count ?? it.total_visits ?? it.visit ?? 0),
+      unique_visits: Number(it.unique_visit_count ?? it.unique_visits ?? it.unique_visit ?? 0),
+      metadata: { inflows: inflowJson },
+      updated_at: new Date().toISOString(),
+    })).filter((r) => r.date)
+
+    if (rows.length === 0) {
+      return { ok: true, rowsUpserted: 0, meta: { days: 0, inflow_count: inflowJson.length } }
+    }
+
+    const { data, error: upsertErr } = await admin
+      .from('visitors')
+      .upsert(rows, { onConflict: 'brand_id,mall_type,date' })
+      .select('id')
+
+    if (upsertErr) {
+      return { ok: false, error: `visitors upsert 실패: ${upsertErr.message}`, retryable: true }
+    }
+
+    return {
+      ok: true,
+      rowsUpserted: data?.length ?? 0,
+      meta: { days: rows.length, inflow_count: inflowJson.length },
+    }
+  },
 }
 
 const smartstoreAdapter = {

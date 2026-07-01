@@ -16,6 +16,7 @@ export type ProductSalesRow = {
   prevAmount: number
   share: number
   changePercent: number | null
+  adCost: number
 }
 
 function toNum(v: number | string | null | undefined): number {
@@ -92,18 +93,64 @@ export async function getProductSales(
       current_qty: number | string
       current_amount: number | string
       prev_amount: number | string
+      ad_cost: number | string | null
     }) => ({
       productName: r.product_name,
       qty: Number(r.current_qty ?? 0),
       amount: toNum(r.current_amount),
       prevAmount: toNum(r.prev_amount),
+      adCost: toNum(r.ad_cost),
     })
   )
   const totalAmount = rows.reduce((s: number, r: { amount: number }) => s + r.amount, 0)
-  return rows.map((r: { productName: string; qty: number; amount: number; prevAmount: number }) => ({
-    ...r,
-    share: totalAmount > 0 ? (r.amount / totalAmount) * 100 : 0,
-    changePercent:
-      r.prevAmount > 0 ? ((r.amount - r.prevAmount) / r.prevAmount) * 100 : null,
+  return rows.map(
+    (r: {
+      productName: string
+      qty: number
+      amount: number
+      prevAmount: number
+      adCost: number
+    }) => ({
+      ...r,
+      share: totalAmount > 0 ? (r.amount / totalAmount) * 100 : 0,
+      changePercent:
+        r.prevAmount > 0 ? ((r.amount - r.prevAmount) / r.prevAmount) * 100 : null,
+    })
+  )
+}
+
+export type MappableProduct = {
+  productName: string
+}
+
+// 특정 쇼핑몰에서 판매된 상품 리스트 (order_items DISTINCT + catalog_products for 자사몰)
+export async function getMallProducts(
+  supabase: SupabaseClient,
+  brandId: string,
+  mall: string
+): Promise<MappableProduct[]> {
+  const { data, error } = await supabase.rpc('get_product_info', {
+    p_brand_id: brandId,
+    p_mall: mall,
+  })
+  if (error) throw new Error(`상품 목록 조회 실패: ${error.message}`)
+  return (data ?? []).map((r: { product_name: string }) => ({
+    productName: r.product_name,
+  }))
+}
+
+// 특정 광고 unit에 이미 매핑된 상품 (쇼핑몰별)
+export async function getCampaignMappings(
+  supabase: SupabaseClient,
+  unitId: string
+): Promise<{ mallType: string; productName: string }[]> {
+  const { data, error } = await supabase
+    .from('campaign_product_mappings')
+    .select('mall_type, product_name')
+    .eq('ad_unit_id', unitId)
+  if (error) throw new Error(`매핑 조회 실패: ${error.message}`)
+  return (data ?? []).map((r: { mall_type: string; product_name: string }) => ({
+    mallType: r.mall_type,
+    productName: r.product_name,
   }))
 }

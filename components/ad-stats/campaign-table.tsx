@@ -36,10 +36,12 @@ export function CampaignTable({
   data,
   isLoading,
   onRowClick,
+  onMapClick,
 }: {
   data: CampaignRow[]
   isLoading: boolean
   onRowClick: (unit: { id: string; name: string }) => void
+  onMapClick: (unit: { id: string; name: string }) => void
 }) {
   const [query, setQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>('all')
@@ -128,19 +130,20 @@ export function CampaignTable({
                 {header('전환수', 'conversions')}
                 {header('전환매출', 'conversion_revenue')}
                 {header('ROAS', 'roas')}
+                <th className="py-2 pr-4 text-center">매칭</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={10} className="py-4 text-center text-muted-foreground">
+                  <td colSpan={11} className="py-4 text-center text-muted-foreground">
                     로딩 중...
                   </td>
                 </tr>
               )}
               {!isLoading && sorted.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="py-4 text-center text-muted-foreground">
+                  <td colSpan={11} className="py-4 text-center text-muted-foreground">
                     데이터 없음
                   </td>
                 </tr>
@@ -163,6 +166,17 @@ export function CampaignTable({
                     <td className="py-2 pr-4 text-right">{fmt(r.conversions)}</td>
                     <td className="py-2 pr-4 text-right">₩{fmt(r.conversion_revenue)}</td>
                     <td className="py-2 pr-4 text-right">{d.roas === 0 && r.cost === 0 ? '—' : `${d.roas.toFixed(0)}%`}</td>
+                    <td className="py-2 pr-4 text-center">
+                      <button
+                        className="rounded-md border border-input bg-background px-2 py-1 text-xs hover:bg-muted"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onMapClick({ id: r.ad_unit_id, name: r.campaign_name })
+                        }}
+                      >
+                        상품매칭
+                      </button>
+                    </td>
                   </tr>
                 )
               })}

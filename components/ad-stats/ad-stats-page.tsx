@@ -19,8 +19,10 @@ import { KeywordTable } from './keyword-table'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { TrendChartModal } from './trend-chart-modal'
+import { ProductMappingModal } from './product-mapping-modal'
 
 type TrendUnit = { id: string; name: string }
+type MapUnit = { id: string; name: string }
 
 export function AdStatsPage({
   brand,
@@ -31,6 +33,7 @@ export function AdStatsPage({
 }) {
   const [range, setRange] = useState<DateRange>(defaultRange)
   const [trendUnit, setTrendUnit] = useState<TrendUnit | null>(null)
+  const [mapUnit, setMapUnit] = useState<MapUnit | null>(null)
   const supabase = createBrowserClient()
 
   const kpis = useSWR(
@@ -98,6 +101,7 @@ export function AdStatsPage({
         data={campaigns.data ?? []}
         isLoading={campaigns.isLoading}
         onRowClick={(u) => setTrendUnit(u)}
+        onMapClick={(u) => setMapUnit(u)}
       />
 
       <KeywordTable
@@ -113,6 +117,14 @@ export function AdStatsPage({
           unit={trendUnit}
           range={range}
           onClose={() => setTrendUnit(null)}
+        />
+      )}
+
+      {mapUnit && (
+        <ProductMappingModal
+          brandId={brand.id}
+          unit={mapUnit}
+          onClose={() => setMapUnit(null)}
         />
       )}
     </div>

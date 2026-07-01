@@ -23,7 +23,7 @@ export type UnifiedRow = {
   amount: number
   costTotal: number | null // cost * qty
   costRate: number | null // costTotal / amount * 100
-  adCost: number | null // Plan 12 후속 — 지금은 null
+  adCost: number
   adRate: number | null
 }
 

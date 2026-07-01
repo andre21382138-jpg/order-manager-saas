@@ -36,6 +36,8 @@ function mergeRows(info: ProductInfoRow[], sales: ProductSalesRow[]): UnifiedRow
     const cost = i?.cost ?? null
     const costTotal = cost !== null ? cost * qty : null
     const costRate = amount > 0 && costTotal !== null ? (costTotal / amount) * 100 : null
+    const adCost = s?.adCost ?? 0
+    const adRate = amount > 0 ? (adCost / amount) * 100 : null
     return {
       catalogProductId: i?.catalogProductId ?? null,
       productName: name,
@@ -45,8 +47,8 @@ function mergeRows(info: ProductInfoRow[], sales: ProductSalesRow[]): UnifiedRow
       amount,
       costTotal,
       costRate,
-      adCost: null,
-      adRate: null,
+      adCost,
+      adRate,
     }
   })
 

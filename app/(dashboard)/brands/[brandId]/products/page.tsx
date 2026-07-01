@@ -1,13 +1,41 @@
 import { notFound } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ProductsPage } from '@/components/products/products-page'
+import {
+  getMallList,
+  getProductInfo,
+  getProductSales,
+  type DateRange,
+} from '@/lib/queries/products'
 
-export default async function BrandProductsStubPage({
+function kstNow(): Date {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000)
+}
+function ymd(d: Date): string {
+  return d.toISOString().slice(0, 10)
+}
+function defaultRange(): DateRange {
+  const now = kstNow()
+  const yesterday = new Date(now.getTime() - 86400000)
+  const firstOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+  if (firstOfMonth.getTime() >= yesterday.getTime()) {
+    return {
+      from: ymd(new Date(yesterday.getTime() - 29 * 86400000)),
+      to: ymd(yesterday),
+    }
+  }
+  return { from: ymd(firstOfMonth), to: ymd(yesterday) }
+}
+
+export default async function BrandProductsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ brandId: string }>
+  searchParams: Promise<{ mall?: string; from?: string; to?: string }>
 }) {
   const { brandId } = await params
+  const sp = await searchParams
   const supabase = await createServerClient()
 
   const { data: brand } = await supabase
@@ -15,22 +43,33 @@ export default async function BrandProductsStubPage({
     .select('id, name')
     .eq('id', brandId)
     .single()
-
   if (!brand) notFound()
 
+  const dr = defaultRange()
+  const range: DateRange = {
+    from: sp.from ?? dr.from,
+    to: sp.to ?? dr.to,
+  }
+  const malls = await getMallList(supabase, brandId)
+  const mall =
+    sp.mall && malls.includes(sp.mall) ? sp.mall : (malls[0] ?? '자사몰')
+
+  const [info, sales] =
+    malls.length === 0
+      ? [[], []]
+      : await Promise.all([
+          getProductInfo(supabase, brandId, mall),
+          getProductSales(supabase, brandId, mall, range),
+        ])
+
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">{brand.name} — 상품 분석</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle>준비 중</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            상품 분석 페이지는 후속 Plan 11에서 제공될 예정입니다. (catalog_products + orders join — 상품별 매출/판매 추이)
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    <ProductsPage
+      brand={brand}
+      malls={malls}
+      mall={mall}
+      range={range}
+      info={info}
+      sales={sales}
+    />
   )
 }

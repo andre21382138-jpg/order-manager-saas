@@ -1,7 +1,6 @@
 import { MallTabs } from './mall-tabs'
 import { DateRangeFilter } from './date-range-filter'
-import { ProductInfoTable } from './product-info-table'
-import { ProductSalesTable } from './product-sales-table'
+import { ProductsUnifiedTable, type UnifiedRow } from './products-unified-table'
 import type {
   DateRange,
   ProductInfoRow,
@@ -17,10 +16,47 @@ type Props = {
   sales: ProductSalesRow[]
 }
 
+function mergeRows(info: ProductInfoRow[], sales: ProductSalesRow[]): UnifiedRow[] {
+  // 상품 목록 = info 기준. sales의 상품명이 info에 없으면 추가
+  const salesByName = new Map<string, ProductSalesRow>()
+  for (const s of sales) salesByName.set(s.productName, s)
+  const infoByName = new Map<string, ProductInfoRow>()
+  for (const i of info) infoByName.set(i.productName, i)
+
+  const allNames = new Set<string>([
+    ...info.map((i) => i.productName),
+    ...sales.map((s) => s.productName),
+  ])
+
+  const rows: UnifiedRow[] = Array.from(allNames).map((name) => {
+    const i = infoByName.get(name)
+    const s = salesByName.get(name)
+    const qty = s?.qty ?? 0
+    const amount = s?.amount ?? 0
+    const cost = i?.cost ?? null
+    const costTotal = cost !== null ? cost * qty : null
+    const costRate = amount > 0 && costTotal !== null ? (costTotal / amount) * 100 : null
+    return {
+      catalogProductId: i?.catalogProductId ?? null,
+      productName: name,
+      cost,
+      price: i?.price ?? null,
+      qty,
+      amount,
+      costTotal,
+      costRate,
+      adCost: null,
+      adRate: null,
+    }
+  })
+
+  // 매출 높은 순 → 매출 0은 뒤로
+  return rows.sort((a, b) => b.amount - a.amount)
+}
+
 export function ProductsPage({ brand, malls, mall, range, info, sales }: Props) {
-  // isSelfMall: 자사몰 탭이면 판매가/원가 표시. 판단 기준: mall 이름에 '자사몰' 포함
-  // (사용자 채널 별칭이라 정확히 '자사몰'이 아닐 수 있음. mall_type이 자사몰이면 catalog_products에 데이터 존재)
-  const isSelfMall = mall === '자사몰' || info.some((r) => r.catalogProductId !== null)
+  const isSelfMall = info.some((r) => r.catalogProductId !== null)
+  const rows = mergeRows(info, sales)
 
   return (
     <div className="space-y-6">
@@ -36,8 +72,7 @@ export function ProductsPage({ brand, malls, mall, range, info, sales }: Props) 
       ) : (
         <>
           <MallTabs brandId={brand.id} malls={malls} activeMall={mall} range={range} />
-          <ProductInfoTable data={info} isSelfMall={isSelfMall} />
-          <ProductSalesTable data={sales} />
+          <ProductsUnifiedTable data={rows} isSelfMall={isSelfMall} />
         </>
       )}
     </div>

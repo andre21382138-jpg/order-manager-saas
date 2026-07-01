@@ -305,6 +305,9 @@ const cafe24Adapter = {
           ? (Number(o.naver_point ?? 0) || Math.max(0, originalAmount - rawPayment))
           : 0
         const totalAmount = rawPayment + naverPoint
+        // 회원구매(member_id != null) vs 비회원, 신규(first_order='T') vs 재구매
+        const memberId = o.member_id ? String(o.member_id) : null
+        const isNew = o.first_order === 'T'
         return {
           brand_id: brandId,
           mall_type: channelAccount,
@@ -314,8 +317,9 @@ const cafe24Adapter = {
           total_qty: totalQty,
           original_amount: originalAmount,
           is_cancelled: isCancelled,
-          is_new: false,
+          is_new: isNew,
           naver_amount: naverPoint,
+          member_id: memberId,
         }
       })
 

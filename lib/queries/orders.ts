@@ -11,6 +11,10 @@ export type OrderKpis = {
   visits: number | null
   conversionRate: number | null
   newOrderRate: number | null
+  memberCount: number
+  guestCount: number
+  memberNewCount: number
+  memberRepeatCount: number
 }
 
 export type DailyRow = {
@@ -73,11 +77,19 @@ export async function getOrdersKpis(
     order_count: 0,
     refund_amount: 0,
     new_count: 0,
+    member_count: 0,
+    guest_count: 0,
+    member_new_count: 0,
+    member_repeat_count: 0,
   }
   const totalRevenue = toNum(row.total_revenue)
   const orderCount = Number(row.order_count ?? 0)
   const refundAmount = toNum(row.refund_amount)
   const newCount = Number(row.new_count ?? 0)
+  const memberCount = Number(row.member_count ?? 0)
+  const guestCount = Number(row.guest_count ?? 0)
+  const memberNewCount = Number(row.member_new_count ?? 0)
+  const memberRepeatCount = Number(row.member_repeat_count ?? 0)
   const finalRevenue = totalRevenue - refundAmount
   const avgOrderValue = orderCount > 0 ? totalRevenue / orderCount : null
   const newOrderRate = orderCount > 0 ? (newCount / orderCount) * 100 : null
@@ -112,6 +124,10 @@ export async function getOrdersKpis(
     visits,
     conversionRate,
     newOrderRate,
+    memberCount,
+    guestCount,
+    memberNewCount,
+    memberRepeatCount,
   }
 }
 

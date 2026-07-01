@@ -4,11 +4,38 @@ import useSWR from 'swr'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { createBrowserClient } from '@/lib/supabase/client'
-import {
-  getMallList,
-  getMallProducts,
-  getCampaignMappings,
-} from '@/lib/queries/products'
+
+type Category = { id: string; name: string }
+
+async function fetchCategories(brandId: string): Promise<Category[]> {
+  const r = await fetch(`/api/brands/${brandId}/category-mappings`)
+  if (!r.ok) return []
+  const j = await r.json()
+  return j.categories ?? []
+}
+
+async function fetchExisting(unitId: string): Promise<string[]> {
+  const supabase = createBrowserClient()
+  const { data, error } = await supabase
+    .from('campaign_product_mappings')
+    .select('category_id')
+    .eq('ad_unit_id', unitId)
+  if (error) return []
+  return (data ?? []).map((r: { category_id: string }) => r.category_id)
+}
+
+function extractWords(name: string): string[] {
+  return name
+    .split(/[\s_\-\/\(\)\[\]\{\}\.,+&#@!?:;]+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length >= 2)
+}
+
+function matchesAnyWord(categoryName: string, words: string[]): boolean {
+  if (words.length === 0) return true
+  const lower = categoryName.toLowerCase()
+  return words.some((w) => lower.includes(w.toLowerCase()))
+}
 
 type Props = {
   brandId: string
@@ -16,23 +43,7 @@ type Props = {
   onClose: () => void
 }
 
-function extractWords(name: string): string[] {
-  // 캠페인명에서 2글자 이상 단어 추출 (공백/기호 기준)
-  return name
-    .split(/[\s_\-\/\(\)\[\]\{\}\.,+&#@!?:;]+/)
-    .map((w) => w.trim())
-    .filter((w) => w.length >= 2)
-}
-
-function matchesAnyWord(productName: string, words: string[]): boolean {
-  if (words.length === 0) return true
-  const lower = productName.toLowerCase()
-  return words.some((w) => lower.includes(w.toLowerCase()))
-}
-
 export function ProductMappingModal({ brandId, unit, onClose }: Props) {
-  const supabase = createBrowserClient()
-  const [mall, setMall] = useState<string>('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState('')
   const [autoFilter, setAutoFilter] = useState(true)
@@ -40,62 +51,39 @@ export function ProductMappingModal({ brandId, unit, onClose }: Props) {
 
   const words = useMemo(() => extractWords(unit.name), [unit.name])
 
-  const malls = useSWR(['mall-list', brandId], () => getMallList(supabase, brandId))
+  const cats = useSWR(['ad-mapping-cats', brandId], () => fetchCategories(brandId))
+  const existing = useSWR(['ad-mapping-existing', unit.id], () => fetchExisting(unit.id))
 
   useEffect(() => {
-    if (!mall && malls.data && malls.data.length > 0) {
-      setMall(malls.data[0])
-    }
-  }, [malls.data, mall])
-
-  const products = useSWR(
-    mall ? ['mall-products', brandId, mall] : null,
-    () => getMallProducts(supabase, brandId, mall)
-  )
-
-  const existing = useSWR(['mappings', unit.id], () =>
-    getCampaignMappings(supabase, unit.id)
-  )
-
-  // mall 바뀔 때 기존 매핑을 selected로 로드
-  useEffect(() => {
-    if (!mall || !existing.data) return
-    const names = existing.data
-      .filter((m) => m.mallType === mall)
-      .map((m) => m.productName)
-    setSelected(new Set(names))
-  }, [mall, existing.data])
+    if (existing.data) setSelected(new Set(existing.data))
+  }, [existing.data])
 
   const filtered = useMemo(() => {
-    const list = products.data ?? []
+    const list = cats.data ?? []
     const q = query.trim().toLowerCase()
-    return list.filter((p) => {
-      if (q !== '' && !p.productName.toLowerCase().includes(q)) return false
-      if (autoFilter && !matchesAnyWord(p.productName, words)) return false
+    return list.filter((c) => {
+      if (q !== '' && !c.name.toLowerCase().includes(q)) return false
+      if (autoFilter && !matchesAnyWord(c.name, words)) return false
       return true
     })
-  }, [products.data, query, autoFilter, words])
+  }, [cats.data, query, autoFilter, words])
 
-  function toggle(name: string) {
+  function toggle(id: string) {
     setSelected((s) => {
       const n = new Set(s)
-      if (n.has(name)) n.delete(name)
-      else n.add(name)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
       return n
     })
   }
 
   async function save() {
-    if (!mall) return
     setSaving(true)
     try {
       const res = await fetch(`/api/campaigns/${unit.id}/mappings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mall_type: mall,
-          product_names: Array.from(selected),
-        }),
+        body: JSON.stringify({ category_ids: Array.from(selected) }),
       })
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
@@ -111,29 +99,16 @@ export function ProductMappingModal({ brandId, unit, onClose }: Props) {
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="!max-w-[min(95vw,720px)] w-full">
+      <DialogContent className="!max-w-[min(95vw,640px)] w-full">
         <DialogHeader>
-          <DialogTitle>{unit.name} — 상품 매칭</DialogTitle>
+          <DialogTitle>{unit.name} — 카테고리 매칭</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <label className="text-sm text-muted-foreground">쇼핑몰</label>
-            <select
-              className="rounded-md border border-input bg-background px-3 py-1 text-sm"
-              value={mall}
-              onChange={(e) => setMall(e.target.value)}
-            >
-              <option value="">선택</option>
-              {(malls.data ?? []).map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
             <input
               type="search"
-              placeholder="상품 검색"
+              placeholder="카테고리 검색"
               className="rounded-md border border-input bg-background px-3 py-1 text-sm"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -147,7 +122,6 @@ export function ProductMappingModal({ brandId, unit, onClose }: Props) {
               캠페인명 단어 자동 필터
             </label>
           </div>
-
           {autoFilter && words.length > 0 && (
             <div className="text-xs text-muted-foreground">
               필터 단어: {words.join(', ')}
@@ -155,31 +129,26 @@ export function ProductMappingModal({ brandId, unit, onClose }: Props) {
           )}
 
           <div className="max-h-[50vh] overflow-y-auto rounded-md border">
-            {!mall && (
-              <div className="p-4 text-center text-sm text-muted-foreground">
-                쇼핑몰을 선택하세요
-              </div>
-            )}
-            {mall && products.isLoading && (
+            {cats.isLoading && (
               <div className="p-4 text-center text-sm text-muted-foreground">로딩 중...</div>
             )}
-            {mall && !products.isLoading && filtered.length === 0 && (
+            {!cats.isLoading && filtered.length === 0 && (
               <div className="p-4 text-center text-sm text-muted-foreground">
-                조건에 맞는 상품이 없습니다
+                조건에 맞는 카테고리가 없습니다
               </div>
             )}
-            {mall && !products.isLoading && filtered.length > 0 && (
+            {!cats.isLoading && filtered.length > 0 && (
               <ul className="divide-y">
-                {filtered.map((p) => (
-                  <li key={p.productName} className="flex items-center gap-2 p-2 text-sm">
+                {filtered.map((c) => (
+                  <li key={c.id} className="flex items-center gap-2 p-2 text-sm">
                     <input
                       type="checkbox"
-                      checked={selected.has(p.productName)}
-                      onChange={() => toggle(p.productName)}
-                      id={`mp-${p.productName}`}
+                      checked={selected.has(c.id)}
+                      onChange={() => toggle(c.id)}
+                      id={`cat-${c.id}`}
                     />
-                    <label htmlFor={`mp-${p.productName}`} className="flex-1 cursor-pointer">
-                      {p.productName}
+                    <label htmlFor={`cat-${c.id}`} className="flex-1 cursor-pointer">
+                      {c.name}
                     </label>
                   </li>
                 ))}
@@ -195,7 +164,7 @@ export function ProductMappingModal({ brandId, unit, onClose }: Props) {
               <Button variant="outline" onClick={onClose} disabled={saving}>
                 취소
               </Button>
-              <Button onClick={save} disabled={saving || !mall}>
+              <Button onClick={save} disabled={saving}>
                 {saving ? '저장 중...' : '매칭'}
               </Button>
             </div>

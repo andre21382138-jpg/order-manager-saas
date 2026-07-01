@@ -80,15 +80,23 @@ export async function getMallList(
   supabase: SupabaseClient,
   brandId: string
 ): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('orders')
-    .select('mall_type')
-    .eq('brand_id', brandId)
-    .limit(10000)
-  if (error) throw new Error(`mall list 조회 실패: ${error.message}`)
+  const PAGE = 1000
   const set = new Set<string>()
-  for (const r of (data ?? []) as { mall_type?: string }[]) {
-    if (r.mall_type) set.add(r.mall_type)
+  let offset = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('mall_type')
+      .eq('brand_id', brandId)
+      .range(offset, offset + PAGE - 1)
+    if (error) throw new Error(`mall list 조회 실패: ${error.message}`)
+    const chunk = (data ?? []) as { mall_type?: string }[]
+    for (const r of chunk) {
+      if (r.mall_type) set.add(r.mall_type)
+    }
+    if (chunk.length < PAGE) break
+    offset += PAGE
+    if (offset > 200000) break
   }
   return Array.from(set).sort()
 }

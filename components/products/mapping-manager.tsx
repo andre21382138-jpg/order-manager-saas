@@ -41,7 +41,8 @@ export function MappingManager({
   const [open, setOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const [unmappedOnly, setUnmappedOnly] = useState(false)
+  const [unmappedOnly, setUnmappedOnly] = useState(true)
+  const ROW_LIMIT = 100
 
   const supabase = createBrowserClient()
 
@@ -94,6 +95,7 @@ export function MappingManager({
 
   const totalMappings = mappings.data?.mappings.length ?? 0
   const unmappedCount = allNames.filter((n) => !mappingByName.has(n)).length
+  const visibleRows = useMemo(() => rows.slice(0, ROW_LIMIT), [rows])
 
   async function updateCategory(mappingId: string | null, productName: string, newCategoryId: string | null) {
     // 신규 매핑이면 삭제 API 대신 무시 (미분류는 매핑 row 자체가 없으므로 아무 것도 안 함)
@@ -147,7 +149,9 @@ export function MappingManager({
               미분류만
             </label>
             <span className="text-xs text-muted-foreground">
-              총 {rows.length}건 표시
+              {rows.length > ROW_LIMIT
+                ? `${rows.length}건 중 상위 ${ROW_LIMIT}건 표시 — 검색으로 좁혀주세요`
+                : `총 ${rows.length}건 표시`}
             </span>
           </div>
           <div className="max-h-[60vh] overflow-y-auto">
@@ -160,7 +164,7 @@ export function MappingManager({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
+                {visibleRows.map((r) => (
                   <tr key={r.productName} className="border-b">
                     <td className="py-2 pr-4">{r.productName}</td>
                     <td className="py-2 pr-4">

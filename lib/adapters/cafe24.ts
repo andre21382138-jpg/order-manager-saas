@@ -127,6 +127,13 @@ async function syncProducts(
   throw new Error('syncProducts must run on virtual server sync-worker (not Vercel)')
 }
 
+async function syncAnalytics(
+  _creds: CredentialPayload,
+  _ctx: SyncContext
+): Promise<{ ok: false; error: string; retryable: boolean }> {
+  throw new Error('syncAnalytics must run on virtual server sync-worker (not Vercel)')
+}
+
 export const cafe24Adapter: ChannelAdapter = {
   channel: 'cafe24',
   category: 'shop',
@@ -137,4 +144,5 @@ export const cafe24Adapter: ChannelAdapter = {
   refreshToken,
   syncOrders,
   syncProducts,
+  syncAnalytics,
 }

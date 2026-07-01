@@ -68,6 +68,7 @@ export interface ChannelAdapter {
   refreshToken?(creds: CredentialPayload): Promise<RefreshResult>
   syncOrders?(creds: CredentialPayload, ctx: SyncContext): Promise<SyncResult>
   syncProducts?(creds: CredentialPayload, ctx: SyncContext): Promise<SyncResult>
+  syncAnalytics?(creds: CredentialPayload, ctx: SyncContext): Promise<SyncResult>
   syncAdUnits?(creds: CredentialPayload, ctx: SyncContext): Promise<SyncResult>
   syncAdStats?(creds: CredentialPayload, ctx: SyncContext): Promise<SyncResult>
 }

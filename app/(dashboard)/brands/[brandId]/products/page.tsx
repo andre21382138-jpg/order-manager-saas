@@ -3,8 +3,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { ProductsPage } from '@/components/products/products-page'
 import {
   getMallList,
-  getProductInfo,
-  getProductSales,
+  getCategorySales,
   type DateRange,
 } from '@/lib/queries/products'
 
@@ -54,13 +53,8 @@ export default async function BrandProductsPage({
   const mall =
     sp.mall && malls.includes(sp.mall) ? sp.mall : (malls[0] ?? '자사몰')
 
-  const [info, sales] =
-    malls.length === 0
-      ? [[], []]
-      : await Promise.all([
-          getProductInfo(supabase, brandId, mall),
-          getProductSales(supabase, brandId, mall, range),
-        ])
+  const sales =
+    malls.length === 0 ? [] : await getCategorySales(supabase, brandId, mall, range)
 
   return (
     <ProductsPage
@@ -68,7 +62,6 @@ export default async function BrandProductsPage({
       malls={malls}
       mall={mall}
       range={range}
-      info={info}
       sales={sales}
     />
   )

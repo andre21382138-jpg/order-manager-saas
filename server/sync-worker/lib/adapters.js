@@ -344,12 +344,16 @@ const cafe24Adapter = {
 
         await admin.from('order_items').delete().eq('order_id', saved.id)
 
-        const itemRows = orig.items.map((it) => ({
-          order_id: saved.id,
-          product_name: String(it.product_name ?? ''),
-          qty: Number(it.quantity ?? 0),
-          amount: Number(it.product_price ?? 0),
-        }))
+        const itemRows = orig.items.map((it) => {
+          const rawNo = String(it.product_no ?? it.product_code ?? '').trim()
+          return {
+            order_id: saved.id,
+            product_no: rawNo === '' ? null : rawNo,
+            product_name: String(it.product_name ?? ''),
+            qty: Number(it.quantity ?? 0),
+            amount: Number(it.product_price ?? 0),
+          }
+        })
 
         if (itemRows.length > 0) {
           const { error: itemErr } = await admin.from('order_items').insert(itemRows)
@@ -662,13 +666,17 @@ const smartstoreAdapter = {
           ? orig.items
           : [{ product_name: '상품', quantity: 1, order_price_amount: 0 }]
 
-        const itemRows = items.map((it) => ({
-          order_id: saved.id,
-          product_name: String(it.product_name ?? ''),
-          category: '',
-          qty: Number(it.quantity ?? 0),
-          amount: Number(it.order_price_amount ?? 0),
-        }))
+        const itemRows = items.map((it) => {
+          const rawNo = String(it.product_no ?? '').trim()
+          return {
+            order_id: saved.id,
+            product_no: rawNo === '' ? null : rawNo,
+            product_name: String(it.product_name ?? ''),
+            category: '',
+            qty: Number(it.quantity ?? 0),
+            amount: Number(it.order_price_amount ?? 0),
+          }
+        })
 
         if (itemRows.length > 0) {
           const { error: itemErr } = await admin.from('order_items').insert(itemRows)

@@ -10,7 +10,21 @@ import {
   getTrafficSources,
   type DateRange,
 } from '@/lib/queries/orders'
-import { defaultRange } from '@/components/orders/date-range-filter'
+
+function kstNow(): Date {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000)
+}
+function ymd(d: Date): string {
+  return d.toISOString().slice(0, 10)
+}
+function defaultRange(): DateRange {
+  const now = kstNow()
+  const yesterday = new Date(now.getTime() - 86400000)
+  return {
+    from: ymd(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))),
+    to: ymd(yesterday),
+  }
+}
 
 export default async function BrandOrdersPage({
   params,

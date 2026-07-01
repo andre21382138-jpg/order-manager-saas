@@ -20,10 +20,15 @@ function ymd(d: Date): string {
 function defaultRange(): DateRange {
   const now = kstNow()
   const yesterday = new Date(now.getTime() - 86400000)
-  return {
-    from: ymd(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))),
-    to: ymd(yesterday),
+  const firstOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+  // 오늘이 1일이면 당월 = 오늘 하나뿐이라 데이터 부족 → 최근 30일 fallback
+  if (firstOfMonth.getTime() >= yesterday.getTime()) {
+    return {
+      from: ymd(new Date(yesterday.getTime() - 29 * 86400000)),
+      to: ymd(yesterday),
+    }
   }
+  return { from: ymd(firstOfMonth), to: ymd(yesterday) }
 }
 
 export default async function BrandOrdersPage({

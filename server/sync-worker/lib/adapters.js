@@ -423,32 +423,42 @@ const cafe24Adapter = {
       }
     }
 
-    // 응답 파싱 (cafe24 analytics 응답 포맷: {count, visitors: [...]})
-    const dailyItems = Array.isArray(visitDaily.data?.visitors)
+    // 응답 파싱 (실제 cafe24 analytics 응답: {view: [...]}, {domains: [...]})
+    // 옛 App.js L2736 (analytics.visits?.view), L2745 (analytics.inflows?.domains) 확인
+    const dailyItems = Array.isArray(visitDaily.data?.view)
+      ? visitDaily.data.view
+      : Array.isArray(visitDaily.data?.visitors)
       ? visitDaily.data.visitors
-      : Array.isArray(visitDaily.data?.data)
-      ? visitDaily.data.data
       : []
-    const inflowItems = Array.isArray(inflows.data?.paths)
+    const inflowItems = Array.isArray(inflows.data?.domains)
+      ? inflows.data.domains
+      : Array.isArray(inflows.data?.paths)
       ? inflows.data.paths
-      : Array.isArray(inflows.data?.data)
-      ? inflows.data.data
       : []
-    const inflowJson = inflowItems.slice(0, 50) // 상위 50개만 저장 (metadata jsonb 크기 제한)
+    const inflowJson = inflowItems.slice(0, 50)
 
     const { createAdminClient } = require('./supabase')
     const admin = createAdminClient()
 
-    const rows = dailyItems.map((it) => ({
-      brand_id: brandId,
-      channel_account: mallId,
-      mall_type: channelAccount,
-      date: it.date || it.stat_date || it.visit_date,
-      total_visits: Number(it.visit_count ?? it.total_visits ?? it.visit ?? 0),
-      unique_visits: Number(it.unique_visit_count ?? it.unique_visits ?? it.unique_visit ?? 0),
-      metadata: { inflows: inflowJson },
-      updated_at: new Date().toISOString(),
-    })).filter((r) => r.date)
+    const rows = dailyItems.map((it) => {
+      // date 형식: "2026-03-09T00:00+09:00" → "2026-03-09"
+      const rawDate = String(it.date || it.stat_date || it.visit_date || '')
+      const date = rawDate.slice(0, 10)
+      const visitCount = Number(it.visit_count ?? it.total_visits ?? 0)
+      const firstVisit = Number(it.first_visit_count ?? 0)
+      const reVisit = Number(it.re_visit_count ?? 0)
+      return {
+        brand_id: brandId,
+        channel_account: mallId,
+        mall_type: channelAccount,
+        date,
+        total_visits: visitCount,
+        // 신규 방문자를 unique로 매핑 (cafe24는 unique_visitor 별도 필드 없음)
+        unique_visits: firstVisit > 0 ? firstVisit : visitCount - reVisit,
+        metadata: { inflows: inflowJson },
+        updated_at: new Date().toISOString(),
+      }
+    }).filter((r) => r.date)
 
     if (rows.length === 0) {
       return { ok: true, rowsUpserted: 0, meta: { days: 0, inflow_count: inflowJson.length } }

@@ -6,6 +6,7 @@ const JOB_TYPE_TO_METHOD = {
   ad_stats: 'syncAdStats',
   ad_units: 'syncAdUnits',
   token_refresh: 'refreshToken',
+  analytics: 'syncAnalytics',
 }
 
 module.exports = { JOB_TYPE_TO_METHOD }

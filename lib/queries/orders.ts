@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type DateRange = { from: string; to: string }
@@ -47,23 +48,26 @@ function toNum(v: number | string | null | undefined): number {
 }
 
 // PostgREST 1000행 우회 페이지네이션 (Plan 8/9 패턴)
-async function fetchAllOrders(
+// 통합 columns로 fetch — KPI/일별/상품 모두 파생 가능
+// React cache로 같은 arg면 한 렌더 트리 내 1번만 실행 (성능 개선)
+const fetchAllOrders = cache(async function fetchAllOrders(
   supabase: SupabaseClient,
   brandId: string,
   mall: string,
-  range: DateRange,
-  columns: string
+  from: string,
+  to: string
 ): Promise<Record<string, unknown>[]> {
   const PAGE = 1000
   const all: Record<string, unknown>[] = []
   let offset = 0
+  const columns = 'id, date, total_amount, is_cancelled, is_new'
   while (true) {
     let q = supabase
       .from('orders')
       .select(columns)
       .eq('brand_id', brandId)
-      .gte('date', range.from)
-      .lte('date', range.to)
+      .gte('date', from)
+      .lte('date', to)
     if (mall !== 'all') q = q.eq('mall_type', mall)
     const { data, error } = await q.range(offset, offset + PAGE - 1)
     if (error) throw new Error(`orders 조회 실패: ${error.message}`)
@@ -74,7 +78,7 @@ async function fetchAllOrders(
     if (offset > 200000) break
   }
   return all
-}
+})
 
 export async function getMallList(
   supabase: SupabaseClient,
@@ -107,13 +111,7 @@ export async function getOrdersKpis(
   mall: string,
   range: DateRange
 ): Promise<OrderKpis> {
-  const rows = await fetchAllOrders(
-    supabase,
-    brandId,
-    mall,
-    range,
-    'total_amount, is_cancelled, is_new'
-  )
+  const rows = await fetchAllOrders(supabase, brandId, mall, range.from, range.to)
   let totalRevenue = 0
   let orderCount = 0
   let refundAmount = 0
@@ -169,13 +167,7 @@ export async function getDailyOrders(
   mall: string,
   range: DateRange
 ): Promise<DailyRow[]> {
-  const rows = await fetchAllOrders(
-    supabase,
-    brandId,
-    mall,
-    range,
-    'date, total_amount, is_cancelled'
-  )
+  const rows = await fetchAllOrders(supabase, brandId, mall, range.from, range.to)
   const byDate = new Map<string, { revenue: number; count: number }>()
   for (const r of rows) {
     if (r.is_cancelled === true) continue
@@ -202,13 +194,7 @@ export async function getProductRanking(
   range: DateRange
 ): Promise<ProductRow[]> {
   // orders에서 브랜드 + 기간 + mall 필터로 order.id 목록 확보 후 order_items 조회
-  const orderRows = await fetchAllOrders(
-    supabase,
-    brandId,
-    mall,
-    range,
-    'id, is_cancelled'
-  )
+  const orderRows = await fetchAllOrders(supabase, brandId, mall, range.from, range.to)
   const orderIds = orderRows
     .filter((r) => r.is_cancelled !== true)
     .map((r) => r.id as string)

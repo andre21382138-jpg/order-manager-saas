@@ -68,7 +68,9 @@ export default async function BrandOrdersPage({
   ])
 
   const hasVisitors = mall !== 'all' && visitors.daily.length > 0
-  const hasNewData = kpis.newOrderRate !== null
+  // 신규/재구매는 자사몰(cafe24 회원) 데이터. 스마트스토어는 게스트 구매 다수라 무의미.
+  // visitors 매칭 있는 cafe24 mall에만 표시.
+  const hasNewData = hasVisitors && kpis.newOrderRate !== null
 
   return (
     <OrdersPage

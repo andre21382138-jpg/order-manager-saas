@@ -31,10 +31,6 @@ export function presetRange(p: Preset): DateRange {
   return { from: ymd(firstOfPrev), to: ymd(lastOfPrev) }
 }
 
-export function defaultRange(): DateRange {
-  return presetRange('당월')
-}
-
 type Props = {
   brandId: string
   mall: string

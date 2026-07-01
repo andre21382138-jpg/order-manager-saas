@@ -35,12 +35,21 @@ export function MappingImportModal({
         method: 'POST',
         body: form,
       })
-      const j = await res.json()
-      if (!res.ok || !j.ok) {
-        setError(j.error ?? '업로드 실패')
-      } else {
-        setResult(j)
+      const text = await res.text()
+      let j: { ok?: boolean; error?: string } & Record<string, unknown> = {}
+      try {
+        j = JSON.parse(text)
+      } catch {
+        setError(`서버 응답이 JSON이 아닙니다 (status ${res.status}): ${text.slice(0, 300)}`)
+        return
       }
+      if (!res.ok || !j.ok) {
+        setError(j.error ?? `업로드 실패 (status ${res.status})`)
+      } else {
+        setResult(j as unknown as ImportResult)
+      }
+    } catch (e) {
+      setError(`네트워크 오류: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
       setUploading(false)
     }

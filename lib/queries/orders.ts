@@ -1,4 +1,3 @@
-import { cache } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type DateRange = { from: string; to: string }
@@ -47,62 +46,13 @@ function toNum(v: number | string | null | undefined): number {
   return 0
 }
 
-// PostgREST 1000행 우회 페이지네이션 (Plan 8/9 패턴)
-// 통합 columns로 fetch — KPI/일별/상품 모두 파생 가능
-// React cache로 같은 arg면 한 렌더 트리 내 1번만 실행 (성능 개선)
-const fetchAllOrders = cache(async function fetchAllOrders(
-  supabase: SupabaseClient,
-  brandId: string,
-  mall: string,
-  from: string,
-  to: string
-): Promise<Record<string, unknown>[]> {
-  const PAGE = 1000
-  const all: Record<string, unknown>[] = []
-  let offset = 0
-  const columns = 'id, date, total_amount, is_cancelled, is_new'
-  while (true) {
-    let q = supabase
-      .from('orders')
-      .select(columns)
-      .eq('brand_id', brandId)
-      .gte('date', from)
-      .lte('date', to)
-    if (mall !== 'all') q = q.eq('mall_type', mall)
-    const { data, error } = await q.range(offset, offset + PAGE - 1)
-    if (error) throw new Error(`orders 조회 실패: ${error.message}`)
-    const chunk = (data ?? []) as unknown as Record<string, unknown>[]
-    all.push(...chunk)
-    if (chunk.length < PAGE) break
-    offset += PAGE
-    if (offset > 200000) break
-  }
-  return all
-})
-
 export async function getMallList(
   supabase: SupabaseClient,
   brandId: string
 ): Promise<string[]> {
-  const PAGE = 1000
-  const set = new Set<string>()
-  let offset = 0
-  while (true) {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('mall_type')
-      .eq('brand_id', brandId)
-      .range(offset, offset + PAGE - 1)
-    if (error) throw new Error(`mall list 조회 실패: ${error.message}`)
-    const chunk = (data ?? []) as { mall_type?: string }[]
-    for (const r of chunk) {
-      if (r.mall_type) set.add(r.mall_type)
-    }
-    if (chunk.length < PAGE) break
-    offset += PAGE
-    if (offset > 200000) break
-  }
-  return Array.from(set).sort()
+  const { data, error } = await supabase.rpc('get_mall_list', { p_brand_id: brandId })
+  if (error) throw new Error(`mall list 조회 실패: ${error.message}`)
+  return (data ?? []).map((r: { mall_type: string }) => r.mall_type)
 }
 
 export async function getOrdersKpis(
@@ -111,27 +61,28 @@ export async function getOrdersKpis(
   mall: string,
   range: DateRange
 ): Promise<OrderKpis> {
-  const rows = await fetchAllOrders(supabase, brandId, mall, range.from, range.to)
-  let totalRevenue = 0
-  let orderCount = 0
-  let refundAmount = 0
-  let newCount = 0
-  for (const r of rows) {
-    const amount = toNum(r.total_amount as number | string | null)
-    const cancelled = r.is_cancelled === true
-    if (cancelled) {
-      refundAmount += amount
-    } else {
-      totalRevenue += amount
-      orderCount += 1
-      if (r.is_new === true) newCount += 1
-    }
+  const { data, error } = await supabase.rpc('get_orders_kpis', {
+    p_brand_id: brandId,
+    p_mall: mall,
+    p_from: range.from,
+    p_to: range.to,
+  })
+  if (error) throw new Error(`orders KPI 조회 실패: ${error.message}`)
+  const row = (data ?? [])[0] ?? {
+    total_revenue: 0,
+    order_count: 0,
+    refund_amount: 0,
+    new_count: 0,
   }
+  const totalRevenue = toNum(row.total_revenue)
+  const orderCount = Number(row.order_count ?? 0)
+  const refundAmount = toNum(row.refund_amount)
+  const newCount = Number(row.new_count ?? 0)
   const finalRevenue = totalRevenue - refundAmount
   const avgOrderValue = orderCount > 0 ? totalRevenue / orderCount : null
   const newOrderRate = orderCount > 0 ? (newCount / orderCount) * 100 : null
 
-  // 방문자 (visitors 테이블에서 mall_type + range) — mall='all' 시 null
+  // 방문자 (mall !== 'all' 일 때만)
   let visits: number | null = null
   let conversionRate: number | null = null
   if (mall !== 'all') {
@@ -144,7 +95,10 @@ export async function getOrdersKpis(
       .lte('date', range.to)
       .limit(10000)
     if (!vErr && vRows && vRows.length > 0) {
-      visits = vRows.reduce((s, r) => s + toNum((r as { unique_visits?: number }).unique_visits), 0)
+      visits = vRows.reduce(
+        (s: number, r) => s + toNum((r as { unique_visits?: number }).unique_visits),
+        0
+      )
       conversionRate = visits > 0 ? (orderCount / visits) * 100 : null
     }
   }
@@ -167,24 +121,23 @@ export async function getDailyOrders(
   mall: string,
   range: DateRange
 ): Promise<DailyRow[]> {
-  const rows = await fetchAllOrders(supabase, brandId, mall, range.from, range.to)
-  const byDate = new Map<string, { revenue: number; count: number }>()
-  for (const r of rows) {
-    if (r.is_cancelled === true) continue
-    const d = String(r.date)
-    const cur = byDate.get(d) ?? { revenue: 0, count: 0 }
-    cur.revenue += toNum(r.total_amount as number | string | null)
-    cur.count += 1
-    byDate.set(d, cur)
-  }
-  return Array.from(byDate.entries())
-    .map(([date, v]) => ({
-      date,
-      revenue: v.revenue,
-      orderCount: v.count,
-      avgOrderValue: v.count > 0 ? v.revenue / v.count : null,
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date))
+  const { data, error } = await supabase.rpc('get_daily_orders', {
+    p_brand_id: brandId,
+    p_mall: mall,
+    p_from: range.from,
+    p_to: range.to,
+  })
+  if (error) throw new Error(`일별 매출 조회 실패: ${error.message}`)
+  return (data ?? []).map((r: { date: string; revenue: number | string; order_count: number }) => {
+    const revenue = toNum(r.revenue)
+    const count = Number(r.order_count ?? 0)
+    return {
+      date: String(r.date),
+      revenue,
+      orderCount: count,
+      avgOrderValue: count > 0 ? revenue / count : null,
+    }
+  })
 }
 
 export async function getProductRanking(
@@ -193,53 +146,23 @@ export async function getProductRanking(
   mall: string,
   range: DateRange
 ): Promise<ProductRow[]> {
-  // orders에서 브랜드 + 기간 + mall 필터로 order.id 목록 확보 후 order_items 조회
-  const orderRows = await fetchAllOrders(supabase, brandId, mall, range.from, range.to)
-  const orderIds = orderRows
-    .filter((r) => r.is_cancelled !== true)
-    .map((r) => r.id as string)
-  if (orderIds.length === 0) return []
-
-  const PAGE = 1000
-  const all: { product_name: string; qty: number; amount: number }[] = []
-  for (let i = 0; i < orderIds.length; i += PAGE) {
-    const batch = orderIds.slice(i, i + PAGE)
-    const { data, error } = await supabase
-      .from('order_items')
-      .select('product_name, qty, amount')
-      .in('order_id', batch)
-      .limit(100000)
-    if (error) throw new Error(`order_items 조회 실패: ${error.message}`)
-    for (const r of (data ?? []) as {
-      product_name?: string
-      qty?: number
-      amount?: number | string
-    }[]) {
-      all.push({
-        product_name: r.product_name ?? '상품',
-        qty: toNum(r.qty ?? 0),
-        amount: toNum(r.amount ?? 0),
-      })
-    }
-  }
-
-  const byName = new Map<string, { qty: number; amount: number }>()
-  for (const it of all) {
-    const cur = byName.get(it.product_name) ?? { qty: 0, amount: 0 }
-    cur.qty += it.qty
-    cur.amount += it.amount
-    byName.set(it.product_name, cur)
-  }
-  const totalAmount = Array.from(byName.values()).reduce((s, v) => s + v.amount, 0)
-  return Array.from(byName.entries())
-    .map(([product_name, v]) => ({
-      product_name,
-      qty: v.qty,
-      amount: v.amount,
-      share: totalAmount > 0 ? (v.amount / totalAmount) * 100 : 0,
-    }))
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, 10)
+  const { data, error } = await supabase.rpc('get_product_ranking', {
+    p_brand_id: brandId,
+    p_mall: mall,
+    p_from: range.from,
+    p_to: range.to,
+  })
+  if (error) throw new Error(`상품 순위 조회 실패: ${error.message}`)
+  const rows = (data ?? []).map((r: { product_name: string; qty: number; amount: number | string }) => ({
+    product_name: r.product_name ?? '상품',
+    qty: Number(r.qty ?? 0),
+    amount: toNum(r.amount),
+  }))
+  const total = rows.reduce((s: number, r: { amount: number }) => s + r.amount, 0)
+  return rows.map((r: { product_name: string; qty: number; amount: number }) => ({
+    ...r,
+    share: total > 0 ? (r.amount / total) * 100 : 0,
+  }))
 }
 
 export async function getVisitors(
@@ -272,7 +195,6 @@ export async function getTrafficSources(
   range: DateRange
 ): Promise<TrafficRow[]> {
   if (mall === 'all') return []
-  // 최근 metadata.inflows 최신 1행에서 가져옴 (매일 upsert로 덮어써지므로 range 마지막날 사용)
   const { data } = await supabase
     .from('visitors')
     .select('metadata')

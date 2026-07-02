@@ -159,7 +159,7 @@ export function SettlementTable({ rows, isLoading, onDetailClick }: Props) {
                       {first && (
                         <td
                           rowSpan={rowspan}
-                          className="border-r py-2 pr-4 font-medium break-words align-top bg-muted/20"
+                          className="border-r py-2 pr-4 font-medium break-words align-middle bg-muted/20"
                         >
                           {r.categoryName}
                           {r.categoryId === null && (
@@ -174,7 +174,7 @@ export function SettlementTable({ rows, isLoading, onDetailClick }: Props) {
                       {first && (
                         <td
                           rowSpan={rowspan}
-                          className="border-l whitespace-nowrap py-2 pr-4 text-right font-medium align-top bg-muted/20"
+                          className="border-l whitespace-nowrap py-2 pr-4 text-right font-medium align-middle bg-muted/20"
                         >
                           {fmtWon(r.catTotalAmount)}
                         </td>
@@ -182,7 +182,7 @@ export function SettlementTable({ rows, isLoading, onDetailClick }: Props) {
                       {first && (
                         <td
                           rowSpan={rowspan}
-                          className="whitespace-nowrap py-2 pr-4 text-right font-medium align-top bg-muted/20"
+                          className="whitespace-nowrap py-2 pr-4 text-right font-medium align-middle bg-muted/20"
                         >
                           {fmtWon(r.catTotalAdCost)}
                         </td>
@@ -190,7 +190,7 @@ export function SettlementTable({ rows, isLoading, onDetailClick }: Props) {
                       {first && (
                         <td
                           rowSpan={rowspan}
-                          className="whitespace-nowrap py-2 pr-4 text-center align-top bg-muted/20"
+                          className="whitespace-nowrap py-2 pr-4 text-center align-middle bg-muted/20"
                         >
                           {canDetail && (
                             <Button

@@ -8,6 +8,15 @@ type ExcelRow = Record<string, string | number | undefined>
 function normalize(s: string): string {
   return s.replace(/\s+/g, '').toLowerCase()
 }
+
+// 이름 비교용 정규화: 모든 공백(비표준 유니코드 공백 포함), 대소문자, 언더스코어 제거
+function normalizeForMatch(s: string): string {
+  return s
+    .normalize('NFC')
+    .replace(/[\s  -​　]+/g, '')
+    .replace(/[_\-()（）]/g, '')
+    .toLowerCase()
+}
 const AD_GROUP_ALIASES = ['광고그룹', '광고그룹명', 'adgroup', 'adgroupname', '그룹', '그룹명']
 const CATEGORY_ALIASES = ['상품구분', '상품구분명', 'category', 'categoryname', '구분', '구분명']
 
@@ -122,7 +131,14 @@ export async function POST(
     return NextResponse.json({ error: `카테고리 조회 실패: ${catErr.message}` }, { status: 500 })
   }
   const catIdByName = new Map<string, string>()
-  for (const c of cats ?? []) catIdByName.set(String(c.name), String(c.id))
+  const catIdByNormName = new Map<string, string>()
+  for (const c of cats ?? []) {
+    const name = String(c.name)
+    const id = String(c.id)
+    catIdByName.set(name, id)
+    const norm = normalizeForMatch(name)
+    if (norm && !catIdByNormName.has(norm)) catIdByNormName.set(norm, id)
+  }
 
   // 광고그룹 이름 → id (metadata 기반). 동명이인 있으면 첫 번째로 매핑 (last-write-wins)
   const { data: units, error: unitErr } = await admin
@@ -134,6 +150,7 @@ export async function POST(
     return NextResponse.json({ error: `광고그룹 조회 실패: ${unitErr.message}` }, { status: 500 })
   }
   const adGroupIdByName = new Map<string, string>()
+  const adGroupIdByNormName = new Map<string, string>()
   const adGroupNameCounts = new Map<string, Set<string>>()
   for (const u of units ?? []) {
     const meta = (u.metadata ?? {}) as { ad_group_id?: string; ad_group_name?: string }
@@ -141,6 +158,8 @@ export async function POST(
     const name = String(meta.ad_group_name ?? '').trim()
     if (!id || !name) continue
     if (!adGroupIdByName.has(name)) adGroupIdByName.set(name, id)
+    const norm = normalizeForMatch(name)
+    if (norm && !adGroupIdByNormName.has(norm)) adGroupIdByNormName.set(norm, id)
     const set = adGroupNameCounts.get(name) ?? new Set<string>()
     set.add(id)
     adGroupNameCounts.set(name, set)
@@ -162,7 +181,9 @@ export async function POST(
       continue
     }
     const adGroupId = adGroupIdByName.get(groupName)
+      ?? adGroupIdByNormName.get(normalizeForMatch(groupName))
     const categoryId = catIdByName.get(catName)
+      ?? catIdByNormName.get(normalizeForMatch(catName))
     if (!adGroupId && !categoryId) {
       // 둘 다 없음 = 완전히 다른 브랜드 행
       skippedNoAdGroup++

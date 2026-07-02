@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 type ExcelRow = {
   상품구분?: string
   상품코드?: string | number
-  상품명?: string
+  상품명?: string | number
 }
 
 export async function POST(
@@ -44,39 +44,44 @@ export async function POST(
     return NextResponse.json({ error: '빈 시트' }, { status: 400 })
   }
   const first = rowsRaw[0]
-  if (!('상품구분' in first) || !('상품명' in first)) {
+  if (!('상품구분' in first) || !('상품코드' in first)) {
     return NextResponse.json(
-      { error: '필수 컬럼(상품구분, 상품명) 누락' },
+      { error: '필수 컬럼(상품구분, 상품코드) 누락' },
       { status: 400 }
     )
   }
 
-  // Excel row → (product_name → { category, product_no })
-  // last-write-wins + 충돌 감지
-  const nameToCategories = new Map<string, string[]>()
-  const finalMap = new Map<string, { category: string; productNo: string | null }>()
+  // Excel row → (product_no → { category, product_name })
+  // last-write-wins + 충돌 감지 (같은 상품코드에 다른 상품구분이 지정된 경우)
+  const noToCategories = new Map<string, string[]>()
+  const finalMap = new Map<string, { category: string; productName: string | null }>()
   const categorySet = new Set<string>()
+  let skippedNoCode = 0
 
   for (const r of rowsRaw) {
     const category = String(r.상품구분 ?? '').trim()
-    const name = String(r.상품명 ?? '').trim()
-    const productNo = r.상품코드 != null && r.상품코드 !== ''
-      ? String(r.상품코드).trim()
+    const productNo = String(r.상품코드 ?? '').trim()
+    const productName = r.상품명 != null && String(r.상품명).trim() !== ''
+      ? String(r.상품명).trim()
       : null
-    if (!category || !name) continue
+    if (!category) continue
+    if (!productNo) {
+      skippedNoCode++
+      continue
+    }
     categorySet.add(category)
-    const arr = nameToCategories.get(name) ?? []
+    const arr = noToCategories.get(productNo) ?? []
     if (!arr.includes(category)) arr.push(category)
-    nameToCategories.set(name, arr)
-    finalMap.set(name, { category, productNo }) // last-write-wins
+    noToCategories.set(productNo, arr)
+    finalMap.set(productNo, { category, productName }) // last-write-wins
   }
 
-  const conflicts = Array.from(nameToCategories.entries())
+  const conflicts = Array.from(noToCategories.entries())
     .filter(([, cats]) => cats.length > 1)
-    .map(([productName, cats]) => {
-      const chosen = finalMap.get(productName)!.category
+    .map(([productNo, cats]) => {
+      const chosen = finalMap.get(productNo)!.category
       return {
-        productName,
+        productNo,
         chosenCategory: chosen,
         otherCategories: cats.filter((c) => c !== chosen),
       }
@@ -84,7 +89,7 @@ export async function POST(
 
   const admin = createAdminClient()
 
-  // 전체 교체: 기존 categories 삭제 → CASCADE로 mappings + campaign_product_mappings 정리
+  // 전체 교체: 기존 categories 삭제 → CASCADE로 product_category_mappings + campaign_product_mappings 정리
   const { error: delErr } = await admin
     .from('product_categories')
     .delete()
@@ -113,12 +118,12 @@ export async function POST(
   }
   const catIdByName = new Map(insertedCats.map((c) => [c.name, c.id]))
 
-  // mappings insert
-  const mappingRows = Array.from(finalMap.entries()).map(([productName, v]) => ({
+  // mappings insert (product_no 기반)
+  const mappingRows = Array.from(finalMap.entries()).map(([productNo, v]) => ({
     brand_id: brandId,
     category_id: catIdByName.get(v.category)!,
-    product_no: v.productNo,
-    product_name: productName,
+    product_no: productNo,
+    product_name: v.productName,
   }))
   const CHUNK = 1000
   let inserted = 0
@@ -141,6 +146,7 @@ export async function POST(
     categoriesCount: categoryRows.length,
     mappingsCount: inserted,
     conflicts,
+    skippedNoCode,
     elapsedMs: Date.now() - started,
   })
 }

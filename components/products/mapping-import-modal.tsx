@@ -7,7 +7,8 @@ type ImportResult = {
   ok: true
   categoriesCount: number
   mappingsCount: number
-  conflicts: Array<{ productName: string; chosenCategory: string; otherCategories: string[] }>
+  conflicts: Array<{ productNo: string; chosenCategory: string; otherCategories: string[] }>
+  skippedNoCode: number
   elapsedMs: number
 }
 
@@ -69,7 +70,7 @@ export function MappingImportModal({
           </div>
 
           <div className="text-sm">
-            필수 컬럼: <code>상품구분</code>, <code>상품명</code>. 선택 컬럼: <code>상품코드</code>.
+            필수 컬럼: <code>상품구분</code>, <code>상품코드</code>. 선택 컬럼: <code>상품명</code> (참조용).
           </div>
 
           <input
@@ -90,6 +91,9 @@ export function MappingImportModal({
               <div>✅ 완료 ({result.elapsedMs}ms)</div>
               <div>· 카테고리: {result.categoriesCount}개</div>
               <div>· 매핑: {result.mappingsCount}건</div>
+              {result.skippedNoCode > 0 && (
+                <div className="text-amber-700">· 상품코드 누락 스킵: {result.skippedNoCode}건</div>
+              )}
               {result.conflicts.length > 0 && (
                 <details className="mt-2">
                   <summary className="cursor-pointer text-amber-700">
@@ -97,8 +101,8 @@ export function MappingImportModal({
                   </summary>
                   <ul className="mt-1 max-h-48 space-y-1 overflow-y-auto text-xs text-muted-foreground">
                     {result.conflicts.slice(0, 100).map((c) => (
-                      <li key={c.productName}>
-                        「{c.productName}」 → <b>{c.chosenCategory}</b> (다른 후보: {c.otherCategories.join(', ')})
+                      <li key={c.productNo}>
+                        상품코드 <b>{c.productNo}</b> → <b>{c.chosenCategory}</b> (다른 후보: {c.otherCategories.join(', ')})
                       </li>
                     ))}
                     {result.conflicts.length > 100 && (

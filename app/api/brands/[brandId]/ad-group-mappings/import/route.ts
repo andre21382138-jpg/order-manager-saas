@@ -9,14 +9,18 @@ function normalize(s: string): string {
   return s.replace(/\s+/g, '').toLowerCase()
 }
 
-// 이름 비교용 정규화: 모든 공백(비표준 유니코드 공백 포함), 대소문자, 언더스코어 제거
+// 이름 비교용 정규화: 유니코드 NFC → 모든 whitespace/제로폭 문자 제거 → 각종 기호 제거 → 소문자
 function normalizeForMatch(s: string): string {
-  return s
-    .normalize('NFC')
-    .replace(/[\s  -​　]+/g, '')
-    .replace(/[_\-()（）]/g, '')
-    .toLowerCase()
+  let out = s.normalize('NFC')
+  // 모든 whitespace (\s 는 nbsp, em/en space, 얇은공백, ideographic space 등 커버)
+  out = out.replace(/\s+/g, '')
+  // 제로폭 문자 (zero-width space/joiner/non-joiner, BOM)
+  out = out.replace(/[​‌‍﻿]/g, '')
+  // 언더스코어 / 괄호 (전각 포함) / 각종 하이픈-대시
+  out = out.replace(/[_()（）\-‐‑‒–—―﹘﹣－]/g, '')
+  return out.toLowerCase()
 }
+
 const AD_GROUP_ALIASES = ['광고그룹', '광고그룹명', 'adgroup', 'adgroupname', '그룹', '그룹명']
 const CATEGORY_ALIASES = ['상품구분', '상품구분명', 'category', 'categoryname', '구분', '구분명']
 
@@ -140,14 +144,25 @@ export async function POST(
     if (norm && !catIdByNormName.has(norm)) catIdByNormName.set(norm, id)
   }
 
-  // 광고그룹 이름 → id (metadata 기반). 동명이인 있으면 첫 번째로 매핑 (last-write-wins)
-  const { data: units, error: unitErr } = await admin
-    .from('ad_units')
-    .select('metadata')
-    .eq('brand_id', brandId)
-    .eq('level', 'keyword')
-  if (unitErr) {
-    return NextResponse.json({ error: `광고그룹 조회 실패: ${unitErr.message}` }, { status: 500 })
+  // 광고그룹 이름 → id (metadata 기반) — 페이지네이션으로 전체 조회
+  const units: Array<{ metadata: unknown }> = []
+  const PAGE = 1000
+  let from = 0
+  while (true) {
+    const { data, error: unitErr } = await admin
+      .from('ad_units')
+      .select('metadata')
+      .eq('brand_id', brandId)
+      .eq('level', 'keyword')
+      .range(from, from + PAGE - 1)
+    if (unitErr) {
+      return NextResponse.json({ error: `광고그룹 조회 실패: ${unitErr.message}` }, { status: 500 })
+    }
+    const chunk = data ?? []
+    units.push(...chunk)
+    if (chunk.length < PAGE) break
+    from += PAGE
+    if (from > 200000) break
   }
   const adGroupIdByName = new Map<string, string>()
   const adGroupIdByNormName = new Map<string, string>()
@@ -169,8 +184,8 @@ export async function POST(
   const errors: { row: number; message: string }[] = []
   const conflicts: { adGroupName: string; count: number }[] = []
   let skippedEmpty = 0
-  let skippedNoAdGroup = 0   // 광고그룹 없음 (다른 브랜드 rows)
-  let skippedNoCategory = 0  // 상품구분 없음
+  let skippedNoAdGroup = 0
+  let skippedNoCategory = 0
 
   for (let i = 0; i < rowsRaw.length; i++) {
     const r = rowsRaw[i]
@@ -185,17 +200,14 @@ export async function POST(
     const categoryId = catIdByName.get(catName)
       ?? catIdByNormName.get(normalizeForMatch(catName))
     if (!adGroupId && !categoryId) {
-      // 둘 다 없음 = 완전히 다른 브랜드 행
       skippedNoAdGroup++
       continue
     }
     if (!adGroupId) {
-      // 카테고리는 있는데 광고그룹은 없음: 흔한 경우(같은 카테고리의 다른 브랜드 광고) → 조용히 스킵
       skippedNoAdGroup++
       continue
     }
     if (!categoryId) {
-      // 광고그룹은 있는데 카테고리 없음: 조사 대상 → error
       errors.push({ row: i + 2, message: `상품구분 미발견: ${catName}` })
       skippedNoCategory++
       continue

@@ -149,24 +149,34 @@ export async function POST(
   const rows: { brand_id: string; ad_group_id: string; category_id: string }[] = []
   const errors: { row: number; message: string }[] = []
   const conflicts: { adGroupName: string; count: number }[] = []
-  let skipped = 0
+  let skippedEmpty = 0
+  let skippedNoAdGroup = 0   // 광고그룹 없음 (다른 브랜드 rows)
+  let skippedNoCategory = 0  // 상품구분 없음
 
   for (let i = 0; i < rowsRaw.length; i++) {
     const r = rowsRaw[i]
     const groupName = String(r[groupKey] ?? '').trim()
     const catName = String(r[catKey] ?? '').trim()
     if (!groupName || !catName) {
-      skipped++
+      skippedEmpty++
       continue
     }
     const adGroupId = adGroupIdByName.get(groupName)
     const categoryId = catIdByName.get(catName)
+    if (!adGroupId && !categoryId) {
+      // 둘 다 없음 = 완전히 다른 브랜드 행
+      skippedNoAdGroup++
+      continue
+    }
     if (!adGroupId) {
-      errors.push({ row: i + 2, message: `광고그룹 미발견: ${groupName}` })
+      // 카테고리는 있는데 광고그룹은 없음: 흔한 경우(같은 카테고리의 다른 브랜드 광고) → 조용히 스킵
+      skippedNoAdGroup++
       continue
     }
     if (!categoryId) {
+      // 광고그룹은 있는데 카테고리 없음: 조사 대상 → error
       errors.push({ row: i + 2, message: `상품구분 미발견: ${catName}` })
+      skippedNoCategory++
       continue
     }
     const ids = adGroupNameCounts.get(groupName)
@@ -194,7 +204,9 @@ export async function POST(
   return NextResponse.json({
     ok: true,
     upserted,
-    skipped,
+    skippedEmpty,
+    skippedNoAdGroup,
+    skippedNoCategory,
     errors: errors.slice(0, 100),
     errorsMore: Math.max(0, errors.length - 100),
     conflicts,

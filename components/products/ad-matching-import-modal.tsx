@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button'
 type ImportResult = {
   ok: true
   upserted: number
-  skipped: number
+  skippedEmpty: number
+  skippedNoAdGroup: number
+  skippedNoCategory: number
   errors: Array<{ row: number; message: string }>
   errorsMore: number
   conflicts: Array<{ adGroupName: string; count: number }>
@@ -94,14 +96,21 @@ export function AdMatchingImportModal({
           {result && (
             <div className="space-y-2 rounded-md border p-3 text-sm">
               <div>✅ 완료 ({result.elapsedMs}ms)</div>
-              <div>· 매핑 upsert: {result.upserted}건</div>
-              {result.skipped > 0 && (
-                <div className="text-amber-700">· 값 누락 스킵: {result.skipped}건</div>
+              <div className="font-medium">· 매핑 upsert: {result.upserted}건</div>
+              {result.skippedNoAdGroup > 0 && (
+                <div className="text-muted-foreground">
+                  · 이 브랜드에 없는 광고그룹 스킵: {result.skippedNoAdGroup}건
+                </div>
+              )}
+              {result.skippedEmpty > 0 && (
+                <div className="text-muted-foreground">
+                  · 값 누락 스킵: {result.skippedEmpty}건
+                </div>
               )}
               {result.errors.length > 0 && (
                 <details className="mt-2">
                   <summary className="cursor-pointer text-red-700">
-                    ⚠️ 매칭 실패 {result.errors.length + result.errorsMore}건
+                    ⚠️ 상품구분 미발견 {result.skippedNoCategory}건 (광고그룹은 있음)
                   </summary>
                   <ul className="mt-1 max-h-48 space-y-1 overflow-y-auto text-xs text-muted-foreground">
                     {result.errors.map((e, i) => (

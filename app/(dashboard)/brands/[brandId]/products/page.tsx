@@ -1,37 +1,13 @@
 import { notFound } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
-import { ProductsPage } from '@/components/products/products-page'
-import {
-  getMallList,
-  getCategorySales,
-  type DateRange,
-} from '@/lib/queries/products'
-
-function kstNow(): Date {
-  return new Date(Date.now() + 9 * 60 * 60 * 1000)
-}
-function ymd(d: Date): string {
-  return d.toISOString().slice(0, 10)
-}
-function defaultRange(): DateRange {
-  const now = kstNow()
-  const yesterday = new Date(now.getTime() - 86400000)
-  const firstOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
-  if (firstOfMonth.getTime() >= yesterday.getTime()) {
-    return {
-      from: ymd(new Date(yesterday.getTime() - 29 * 86400000)),
-      to: ymd(yesterday),
-    }
-  }
-  return { from: ymd(firstOfMonth), to: ymd(yesterday) }
-}
+import { ProductsClient, type Store } from '@/components/products/products-client'
 
 export default async function BrandProductsPage({
   params,
   searchParams,
 }: {
   params: Promise<{ brandId: string }>
-  searchParams: Promise<{ mall?: string; from?: string; to?: string }>
+  searchParams: Promise<{ mall?: string }>
 }) {
   const { brandId } = await params
   const sp = await searchParams
@@ -44,25 +20,37 @@ export default async function BrandProductsPage({
     .single()
   if (!brand) notFound()
 
-  const dr = defaultRange()
-  const range: DateRange = {
-    from: sp.from ?? dr.from,
-    to: sp.to ?? dr.to,
-  }
-  const malls = await getMallList(supabase, brandId)
-  const mall =
-    sp.mall && malls.includes(sp.mall) ? sp.mall : (malls[0] ?? '자사몰')
+  const { data: credsRaw } = await supabase
+    .from('brand_credentials')
+    .select('channel, channel_account, status')
+    .eq('brand_id', brandId)
+    .eq('status', 'active')
+    .in('channel', ['cafe24', 'smartstore'])
+    .order('channel')
+    .order('channel_account')
 
-  const sales =
-    malls.length === 0 ? [] : await getCategorySales(supabase, brandId, mall, range)
+  const stores: Store[] = (credsRaw ?? [])
+    .filter((c): c is { channel: 'cafe24' | 'smartstore'; channel_account: string; status: string } =>
+      c.channel === 'cafe24' || c.channel === 'smartstore'
+    )
+    .map((c) => ({ channel: c.channel, channelAccount: c.channel_account }))
+
+  const activeMall =
+    sp.mall && stores.some((s) => s.channelAccount === sp.mall)
+      ? sp.mall
+      : stores[0]?.channelAccount ?? ''
+  const activeStore = stores.find((s) => s.channelAccount === activeMall) ?? null
+  const activeChannel = activeStore?.channel ?? null
 
   return (
-    <ProductsPage
-      brand={brand}
-      malls={malls}
-      mall={mall}
-      range={range}
-      sales={sales}
-    />
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">{brand.name} — 상품</h1>
+      <ProductsClient
+        brandId={brand.id}
+        stores={stores}
+        activeMall={activeMall}
+        activeChannel={activeChannel}
+      />
+    </div>
   )
 }

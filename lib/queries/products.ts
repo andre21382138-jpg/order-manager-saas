@@ -17,6 +17,23 @@ export type UnmappedProductRow = {
   recentAmount: number
 }
 
+export type MappedProductRow = {
+  productNo: string
+  productName: string
+  price: number | null
+  categoryId: string
+  categoryName: string
+}
+
+export type CatalogProductRow = {
+  catalogProductId: string
+  productNo: string
+  productName: string
+  price: number | null
+  cost: number | null
+  updatedAt: string
+}
+
 export type CategorySalesRow = {
   categoryId: string | null
   categoryName: string
@@ -106,6 +123,62 @@ export async function getUnmappedProducts(
       price: r.price === null ? null : toNum(r.price),
       recentQty: Number(r.recent_qty ?? 0),
       recentAmount: toNum(r.recent_amount),
+    })
+  )
+}
+
+export async function getMappedProducts(
+  supabase: SupabaseClient,
+  brandId: string,
+  mall: string
+): Promise<MappedProductRow[]> {
+  const { data, error } = await supabase.rpc('get_mapped_products', {
+    p_brand_id: brandId,
+    p_mall: mall,
+  })
+  if (error) throw new Error(`매핑 상품 조회 실패: ${error.message}`)
+  return (data ?? []).map(
+    (r: {
+      product_no: string
+      product_name: string
+      price: number | string | null
+      category_id: string
+      category_name: string
+    }) => ({
+      productNo: r.product_no,
+      productName: r.product_name,
+      price: r.price === null ? null : toNum(r.price),
+      categoryId: r.category_id,
+      categoryName: r.category_name,
+    })
+  )
+}
+
+export async function getCatalogProducts(
+  supabase: SupabaseClient,
+  brandId: string,
+  mall: string
+): Promise<CatalogProductRow[]> {
+  const { data, error } = await supabase.rpc('get_catalog_products', {
+    p_brand_id: brandId,
+    p_mall: mall,
+  })
+  if (error) throw new Error(`상품 catalog 조회 실패: ${error.message}`)
+  return (data ?? []).map(
+    (r: {
+      catalog_product_id: string
+      product_no: string
+      product_name: string
+      price: number | string | null
+      cost: number | string | null
+      updated_at: string
+    }) => ({
+      catalogProductId: r.catalog_product_id,
+      productNo: r.product_no,
+      productName: r.product_name,
+      price: r.price === null ? null : toNum(r.price),
+      cost: r.cost === null ? null : toNum(r.cost),
+      updatedAt: r.updated_at,
     })
   )
 }

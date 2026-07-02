@@ -201,6 +201,7 @@ export function MappingManager({
           brandId={brandId}
           onClose={() => {
             setImportOpen(false)
+            setOpen(false)
             mappings.mutate()
             router.refresh()
           }}

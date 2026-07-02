@@ -729,12 +729,12 @@ const smartstoreAdapter = {
               Authorization: `Bearer ${accessToken}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              productStatusTypes: ['SALE', 'WAIT', 'OUTOFSTOCK', 'SUSPENSION', 'CLOSE'],
-              page,
-              size: pageSize,
-              orderType: 'NO',
-            }),
+          },
+          {
+            productStatusTypes: ['SALE', 'WAIT', 'OUTOFSTOCK', 'SUSPENSION', 'CLOSE'],
+            page,
+            size: pageSize,
+            orderType: 'NO',
           }
         )
       } catch (e) {

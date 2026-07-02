@@ -94,7 +94,7 @@ export function ProductInfoTab({
     return (
       <Card>
         <CardContent className="py-8 text-center text-sm text-muted-foreground">
-          🛠 <b>지원 예정</b> — 스마트스토어 상품 sync는 준비 중입니다.
+          🛠 <b>지원 예정</b> — 스마트스토어 상품 목록 불러오기는 준비 중입니다.
           현재는 카페24 스토어에서만 상품 정보를 관리할 수 있습니다.
         </CardContent>
       </Card>
@@ -104,6 +104,21 @@ export function ProductInfoTab({
   const rows = catalog.data ?? []
   const inProgress = running || latest?.status === 'pending' || latest?.status === 'running'
 
+  const statusLabel = (s: string | undefined): string => {
+    switch (s) {
+      case 'pending':
+        return '대기 중'
+      case 'running':
+        return '진행 중'
+      case 'completed':
+        return '완료'
+      case 'failed':
+        return '실패'
+      default:
+        return s ?? ''
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -112,14 +127,14 @@ export function ProductInfoTab({
           <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
             {latest && (
               <span>
-                최근 sync: {fmtKstTime(latest.completed_at ?? latest.started_at ?? latest.created_at)} ·{' '}
+                최근 업데이트: {fmtKstTime(latest.completed_at ?? latest.started_at ?? latest.created_at)} ·{' '}
                 <span className={latest.status === 'failed' ? 'text-red-700' : ''}>
-                  {latest.status}
+                  {statusLabel(latest.status)}
                 </span>
               </span>
             )}
             <Button size="sm" onClick={triggerSync} disabled={inProgress}>
-              {inProgress ? '🔄 sync 중...' : '🔄 상품 sync'}
+              {inProgress ? '🔄 불러오는 중...' : '🔄 카페24 상품 불러오기'}
             </Button>
           </div>
         </div>
@@ -127,7 +142,7 @@ export function ProductInfoTab({
       <CardContent>
         {latest?.status === 'failed' && (
           <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-800">
-            직전 sync 실패: {latest.error_message}
+            직전 업데이트 실패: {latest.error_message}
           </div>
         )}
         <div className="max-h-[70vh] overflow-y-auto">
@@ -151,7 +166,7 @@ export function ProductInfoTab({
               {!catalog.isLoading && rows.length === 0 && (
                 <tr>
                   <td colSpan={4} className="py-4 text-center text-muted-foreground">
-                    상품이 없습니다. 상품 sync를 실행해 카페24로부터 최신 목록을 받아오세요.
+                    상품이 없습니다. 위의 <b>[카페24 상품 불러오기]</b> 버튼을 눌러 카페24에서 최신 목록을 받아오세요.
                   </td>
                 </tr>
               )}

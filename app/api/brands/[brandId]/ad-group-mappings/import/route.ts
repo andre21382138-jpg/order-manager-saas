@@ -49,23 +49,67 @@ export async function POST(
   const wb = XLSX.read(buf, { type: 'buffer' })
   const sheetName = wb.SheetNames[0]
   if (!sheetName) return NextResponse.json({ error: '시트가 없습니다' }, { status: 400 })
-  const rowsRaw = XLSX.utils.sheet_to_json<ExcelRow>(wb.Sheets[sheetName], { defval: '' })
 
-  if (rowsRaw.length === 0) {
+  // 헤더 자동 감지: 첫 30행 스캔하여 광고그룹/상품구분이 있는 행을 헤더로 사용
+  const matrix = XLSX.utils.sheet_to_json<Array<string | number | undefined>>(
+    wb.Sheets[sheetName],
+    { header: 1, defval: '' }
+  )
+  if (matrix.length === 0) {
     return NextResponse.json({ error: '빈 시트' }, { status: 400 })
   }
-  const first = rowsRaw[0]
-  const groupKey = findKey(first, AD_GROUP_ALIASES)
-  const catKey = findKey(first, CATEGORY_ALIASES)
-  if (!groupKey || !catKey) {
-    const detected = Object.keys(first).join(', ')
+
+  const scanLimit = Math.min(30, matrix.length)
+  let headerRowIdx = -1
+  let groupCol = -1
+  let catCol = -1
+  const normalizedGroupAliases = AD_GROUP_ALIASES.map(normalize)
+  const normalizedCatAliases = CATEGORY_ALIASES.map(normalize)
+
+  for (let i = 0; i < scanLimit; i++) {
+    const row = matrix[i]
+    if (!Array.isArray(row)) continue
+    let gCol = -1
+    let cCol = -1
+    for (let j = 0; j < row.length; j++) {
+      const v = String(row[j] ?? '').trim()
+      if (!v) continue
+      const n = normalize(v)
+      if (gCol < 0 && normalizedGroupAliases.includes(n)) gCol = j
+      if (cCol < 0 && normalizedCatAliases.includes(n)) cCol = j
+    }
+    if (gCol >= 0 && cCol >= 0) {
+      headerRowIdx = i
+      groupCol = gCol
+      catCol = cCol
+      break
+    }
+  }
+
+  if (headerRowIdx < 0) {
+    const firstFewRows = matrix.slice(0, Math.min(5, matrix.length))
+      .map((r, i) => `[row ${i + 1}: ${(Array.isArray(r) ? r.slice(0, 5) : []).join(' | ')}]`)
+      .join('\n')
     return NextResponse.json(
       {
-        error: `필수 컬럼(광고그룹, 상품구분)을 찾지 못했습니다. 감지된 헤더: [${detected}]. 지원 별칭: 광고그룹|Adgroup|그룹, 상품구분|Category|구분`,
+        error: `필수 컬럼(광고그룹, 상품구분)을 찾지 못했습니다. 첫 30행 내에서 헤더 미발견. 상단 5행 미리보기:\n${firstFewRows}`,
       },
       { status: 400 }
     )
   }
+
+  // 헤더 감지 후 rowsRaw 재구성
+  const rowsRaw: Array<Record<string, string | number | undefined>> = []
+  for (let i = headerRowIdx + 1; i < matrix.length; i++) {
+    const row = matrix[i]
+    if (!Array.isArray(row)) continue
+    rowsRaw.push({
+      광고그룹: String(row[groupCol] ?? ''),
+      상품구분: String(row[catCol] ?? ''),
+    })
+  }
+  const groupKey = '광고그룹'
+  const catKey = '상품구분'
 
   const admin = createAdminClient()
 

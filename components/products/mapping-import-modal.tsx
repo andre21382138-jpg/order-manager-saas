@@ -73,12 +73,20 @@ export function MappingImportModal({
             필수 컬럼: <code>상품구분</code>, <code>상품코드</code>. 선택 컬럼: <code>상품명</code> (참조용).
           </div>
 
-          <input
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="block w-full text-sm"
-          />
+          <div className="flex items-center gap-3">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent">
+              📎 파일 선택
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                className="hidden"
+              />
+            </label>
+            <span className="text-sm text-muted-foreground truncate">
+              {file ? file.name : '선택된 파일 없음'}
+            </span>
+          </div>
 
           {error && (
             <div className="rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-800">

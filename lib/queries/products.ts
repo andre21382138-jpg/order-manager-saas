@@ -23,6 +23,7 @@ export type MappedProductRow = {
   price: number | null
   categoryId: string
   categoryName: string
+  adGroupNames: string
 }
 
 export type CatalogProductRow = {
@@ -163,6 +164,7 @@ export async function getMappedProducts(
     price: number | string | null
     category_id: string
     category_name: string
+    ad_group_names: string | null
   }>(supabase, 'get_mapped_products', { p_brand_id: brandId, p_mall: mall }, '매핑 상품 조회 실패')
   return data.map((r) => ({
     productNo: r.product_no,
@@ -170,6 +172,7 @@ export async function getMappedProducts(
     price: r.price === null ? null : toNum(r.price),
     categoryId: r.category_id,
     categoryName: r.category_name,
+    adGroupNames: r.ad_group_names ?? '',
   }))
 }
 

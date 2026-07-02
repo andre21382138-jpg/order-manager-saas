@@ -133,7 +133,8 @@ export function CategoryTab({
       (r) =>
         r.productName.toLowerCase().includes(q) ||
         r.productNo.toLowerCase().includes(q) ||
-        r.categoryName.toLowerCase().includes(q)
+        r.categoryName.toLowerCase().includes(q) ||
+        r.adGroupNames.toLowerCase().includes(q)
     )
   }, [mappedRows, mappedQuery])
 
@@ -239,6 +240,7 @@ export function CategoryTab({
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-background">
                 <tr className="border-b text-left text-muted-foreground">
+                  <th className="py-2 pr-4">광고그룹</th>
                   <th className="whitespace-nowrap py-2 pr-4">상품구분</th>
                   <th className="whitespace-nowrap py-2 pr-4">상품코드</th>
                   <th className="whitespace-nowrap py-2 pr-4">상품명</th>
@@ -248,21 +250,24 @@ export function CategoryTab({
               <tbody>
                 {mapped.isLoading && (
                   <tr>
-                    <td colSpan={4} className="py-4 text-center text-muted-foreground">
+                    <td colSpan={5} className="py-4 text-center text-muted-foreground">
                       불러오는 중...
                     </td>
                   </tr>
                 )}
                 {!mapped.isLoading && mappedVisible.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="py-4 text-center text-muted-foreground">
+                    <td colSpan={5} className="py-4 text-center text-muted-foreground">
                       {mappedQuery ? '검색 결과가 없습니다.' : '아직 매핑된 상품이 없습니다.'}
                     </td>
                   </tr>
                 )}
                 {mappedVisible.map((r) => (
-                  <tr key={r.productNo} className="border-b">
-                    <td className="py-2 pr-4">{r.categoryName}</td>
+                  <tr key={r.productNo} className="border-b align-top">
+                    <td className="py-2 pr-4 text-xs text-muted-foreground break-words">
+                      {r.adGroupNames || '-'}
+                    </td>
+                    <td className="whitespace-nowrap py-2 pr-4">{r.categoryName}</td>
                     <td className="whitespace-nowrap py-2 pr-4 font-mono text-xs">{r.productNo}</td>
                     <td className="py-2 pr-4">{r.productName}</td>
                     <td className="whitespace-nowrap py-2 pr-4 text-right">{fmtWon(r.price)}</td>

@@ -28,7 +28,7 @@ export default function LoginPage() {
       setError(signInError.message)
       return
     }
-    router.push('/brands')
+    router.push('/')
     router.refresh()
   }
 

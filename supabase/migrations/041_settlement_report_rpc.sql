@@ -75,8 +75,8 @@ RETURNS TABLE (
   LEFT JOIN category_totals ct ON ct.category_id IS NOT DISTINCT FROM pl.category_id
   LEFT JOIN category_ad_costs cac ON cac.category_id = pl.category_id
   ORDER BY
-    (pl.category_name IS NULL),           -- 미분류를 마지막에
-    pl.category_name,
-    pl.product_name,
+    COALESCE(ct.total_amount, 0) DESC,    -- 카테고리 매출액 큰 순
+    pl.category_name NULLS LAST,
+    pl.amount DESC,                       -- 같은 카테고리 안에서는 상품 매출 큰 순
     pl.option_value NULLS FIRST;
 $$;

@@ -100,33 +100,48 @@ export async function getProductInfo(
   )
 }
 
+async function fetchAllPages<T>(
+  supabase: SupabaseClient,
+  rpcName: string,
+  args: Record<string, unknown>,
+  errorPrefix: string,
+  pageSize = 1000
+): Promise<T[]> {
+  const all: T[] = []
+  let from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .rpc(rpcName, args)
+      .range(from, from + pageSize - 1)
+    if (error) throw new Error(`${errorPrefix}: ${error.message}`)
+    const chunk = (data ?? []) as T[]
+    all.push(...chunk)
+    if (chunk.length < pageSize) break
+    from += pageSize
+    if (from > 100000) break // safety
+  }
+  return all
+}
+
 export async function getUnmappedProducts(
   supabase: SupabaseClient,
   brandId: string,
   mall: string
 ): Promise<UnmappedProductRow[]> {
-  const { data, error } = await supabase
-    .rpc('get_unmapped_products', {
-      p_brand_id: brandId,
-      p_mall: mall,
-    })
-    .range(0, 49999)
-  if (error) throw new Error(`미매핑 상품 조회 실패: ${error.message}`)
-  return (data ?? []).map(
-    (r: {
-      product_no: string
-      product_name: string
-      price: number | string | null
-      recent_qty: number | string
-      recent_amount: number | string
-    }) => ({
-      productNo: r.product_no,
-      productName: r.product_name,
-      price: r.price === null ? null : toNum(r.price),
-      recentQty: Number(r.recent_qty ?? 0),
-      recentAmount: toNum(r.recent_amount),
-    })
-  )
+  const data = await fetchAllPages<{
+    product_no: string
+    product_name: string
+    price: number | string | null
+    recent_qty: number | string
+    recent_amount: number | string
+  }>(supabase, 'get_unmapped_products', { p_brand_id: brandId, p_mall: mall }, '미매핑 상품 조회 실패')
+  return data.map((r) => ({
+    productNo: r.product_no,
+    productName: r.product_name,
+    price: r.price === null ? null : toNum(r.price),
+    recentQty: Number(r.recent_qty ?? 0),
+    recentAmount: toNum(r.recent_amount),
+  }))
 }
 
 export async function getMappedProducts(
@@ -134,28 +149,20 @@ export async function getMappedProducts(
   brandId: string,
   mall: string
 ): Promise<MappedProductRow[]> {
-  const { data, error } = await supabase
-    .rpc('get_mapped_products', {
-      p_brand_id: brandId,
-      p_mall: mall,
-    })
-    .range(0, 49999)
-  if (error) throw new Error(`매핑 상품 조회 실패: ${error.message}`)
-  return (data ?? []).map(
-    (r: {
-      product_no: string
-      product_name: string
-      price: number | string | null
-      category_id: string
-      category_name: string
-    }) => ({
-      productNo: r.product_no,
-      productName: r.product_name,
-      price: r.price === null ? null : toNum(r.price),
-      categoryId: r.category_id,
-      categoryName: r.category_name,
-    })
-  )
+  const data = await fetchAllPages<{
+    product_no: string
+    product_name: string
+    price: number | string | null
+    category_id: string
+    category_name: string
+  }>(supabase, 'get_mapped_products', { p_brand_id: brandId, p_mall: mall }, '매핑 상품 조회 실패')
+  return data.map((r) => ({
+    productNo: r.product_no,
+    productName: r.product_name,
+    price: r.price === null ? null : toNum(r.price),
+    categoryId: r.category_id,
+    categoryName: r.category_name,
+  }))
 }
 
 export async function getCatalogProducts(
@@ -163,30 +170,22 @@ export async function getCatalogProducts(
   brandId: string,
   mall: string
 ): Promise<CatalogProductRow[]> {
-  const { data, error } = await supabase
-    .rpc('get_catalog_products', {
-      p_brand_id: brandId,
-      p_mall: mall,
-    })
-    .range(0, 49999)
-  if (error) throw new Error(`상품 catalog 조회 실패: ${error.message}`)
-  return (data ?? []).map(
-    (r: {
-      catalog_product_id: string
-      product_no: string
-      product_name: string
-      price: number | string | null
-      cost: number | string | null
-      updated_at: string
-    }) => ({
-      catalogProductId: r.catalog_product_id,
-      productNo: r.product_no,
-      productName: r.product_name,
-      price: r.price === null ? null : toNum(r.price),
-      cost: r.cost === null ? null : toNum(r.cost),
-      updatedAt: r.updated_at,
-    })
-  )
+  const data = await fetchAllPages<{
+    catalog_product_id: string
+    product_no: string
+    product_name: string
+    price: number | string | null
+    cost: number | string | null
+    updated_at: string
+  }>(supabase, 'get_catalog_products', { p_brand_id: brandId, p_mall: mall }, '상품 catalog 조회 실패')
+  return data.map((r) => ({
+    catalogProductId: r.catalog_product_id,
+    productNo: r.product_no,
+    productName: r.product_name,
+    price: r.price === null ? null : toNum(r.price),
+    cost: r.cost === null ? null : toNum(r.cost),
+    updatedAt: r.updated_at,
+  }))
 }
 
 export async function getCategorySales(

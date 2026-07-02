@@ -12,6 +12,7 @@ export type SettlementRow = {
   amount: number
   catTotalAmount: number
   catTotalAdCost: number
+  isUnmappedAdRow: boolean
 }
 
 export type AdGroupDetailRow = {
@@ -60,6 +61,7 @@ export async function getSettlementReport(
       amount: number | string
       cat_total_amount: number | string
       cat_total_ad_cost: number | string
+      is_unmapped_ad_row: boolean | null
     }>
     for (const r of chunk) {
       all.push({
@@ -72,6 +74,7 @@ export async function getSettlementReport(
         amount: toNum(r.amount),
         catTotalAmount: toNum(r.cat_total_amount),
         catTotalAdCost: toNum(r.cat_total_ad_cost),
+        isUnmappedAdRow: r.is_unmapped_ad_row === true,
       })
     }
     if (chunk.length < PAGE) break

@@ -31,10 +31,11 @@ export function SettlementTable({ rows, isLoading, onDetailClick }: Props) {
     )
   }, [rows, query])
 
-  // 같은 상품구분 그룹 내 첫 행 판별용
+  // 같은 상품구분 그룹 내 첫 행 판별용 (미매핑 광고비 pseudo row는 항상 첫 행)
   const isFirstInCategory = useMemo(() => {
     const seen = new Set<string>()
     return filtered.map((r) => {
+      if (r.isUnmappedAdRow) return true
       const key = r.categoryId ?? '__unmapped__'
       if (seen.has(key)) return false
       seen.add(key)
@@ -119,7 +120,20 @@ export function SettlementTable({ rows, isLoading, onDetailClick }: Props) {
                 )}
                 {filtered.map((r, idx) => {
                   const first = isFirstInCategory[idx]
-                  const canDetail = first && r.categoryId !== null
+                  const canDetail = first && !r.isUnmappedAdRow && r.categoryId !== null
+                  if (r.isUnmappedAdRow) {
+                    return (
+                      <tr key={`unmapped-ad-${idx}`} className="border-b bg-amber-50">
+                        <td className="py-2 pr-4 font-medium break-words text-amber-900" colSpan={6}>
+                          {r.categoryName} — 매핑되지 않은 광고그룹/캠페인 비용 (광고매칭 완료 시 각 카테고리로 이동)
+                        </td>
+                        <td className="whitespace-nowrap py-2 pr-4 text-right font-medium text-amber-900">
+                          {fmtWon(r.catTotalAdCost)}
+                        </td>
+                        <td></td>
+                      </tr>
+                    )
+                  }
                   return (
                     <tr key={`${r.categoryId ?? '_'}-${r.productNo ?? ''}-${r.optionValue ?? ''}-${idx}`} className="border-b align-top">
                       <td className="py-2 pr-4 font-medium break-words">

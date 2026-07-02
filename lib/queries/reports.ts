@@ -27,6 +27,20 @@ export type AdGroupDetailRow = {
   conversionRevenue: number
 }
 
+export type KeywordDetailRow = {
+  keywordUnitId: string
+  keywordName: string
+  adGroupId: string
+  adGroupName: string
+  campaignName: string
+  campaignType: string
+  cost: number
+  impressions: number
+  clicks: number
+  conversions: number
+  conversionRevenue: number
+}
+
 function toNum(v: number | string | null | undefined): number {
   if (typeof v === 'number') return v
   if (typeof v === 'string') return Number(v) || 0
@@ -119,4 +133,58 @@ export async function getCategoryAdGroupDetails(
     conversions: Number(r.conversions ?? 0),
     conversionRevenue: toNum(r.conversion_revenue),
   }))
+}
+
+export async function getCategoryKeywordDetails(
+  supabase: SupabaseClient,
+  brandId: string,
+  categoryId: string,
+  range: DateRange
+): Promise<KeywordDetailRow[]> {
+  const PAGE = 1000
+  const all: KeywordDetailRow[] = []
+  let from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .rpc('get_category_keyword_details', {
+        p_brand_id: brandId,
+        p_category_id: categoryId,
+        p_from: range.from,
+        p_to: range.to,
+      })
+      .range(from, from + PAGE - 1)
+    if (error) throw new Error(`키워드 상세 조회 실패: ${error.message}`)
+    const chunk = (data ?? []) as Array<{
+      keyword_unit_id: string
+      keyword_name: string
+      ad_group_id: string
+      ad_group_name: string
+      campaign_name: string
+      campaign_type: string | null
+      cost: number | string
+      impressions: number | string
+      clicks: number | string
+      conversions: number | string
+      conversion_revenue: number | string
+    }>
+    for (const r of chunk) {
+      all.push({
+        keywordUnitId: r.keyword_unit_id,
+        keywordName: r.keyword_name ?? '',
+        adGroupId: r.ad_group_id,
+        adGroupName: r.ad_group_name ?? '',
+        campaignName: r.campaign_name ?? '',
+        campaignType: r.campaign_type ?? '',
+        cost: toNum(r.cost),
+        impressions: Number(r.impressions ?? 0),
+        clicks: Number(r.clicks ?? 0),
+        conversions: Number(r.conversions ?? 0),
+        conversionRevenue: toNum(r.conversion_revenue),
+      })
+    }
+    if (chunk.length < PAGE) break
+    from += PAGE
+    if (from > 100000) break
+  }
+  return all
 }

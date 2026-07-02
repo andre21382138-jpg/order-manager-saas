@@ -26,6 +26,12 @@ export type KeywordRow = Kpis & {
   campaign_name: string
   ad_group_name: string
 }
+export type AdGroupRow = Kpis & {
+  ad_group_id: string
+  ad_group_name: string
+  campaign_id: string
+  campaign_name: string
+}
 export type TrendPoint = Kpis & { date: string }
 
 const emptyKpis: Kpis = { cost: 0, impressions: 0, clicks: 0, conversions: 0, conversion_revenue: 0 }
@@ -300,6 +306,54 @@ export function computeKeywords(rows: RawStatsRow[]): KeywordRow[] {
         ...kpi,
       }
     })
+    .sort((a, b) => b.cost - a.cost)
+}
+
+export function computeAdGroups(rows: RawStatsRow[]): AdGroupRow[] {
+  // campaign_id → 이름 매핑
+  const campaignsById = new Map<string, { external_id: string; external_name: string }>()
+  for (const r of rows) {
+    if (r.ad_units?.level === 'campaign') {
+      campaignsById.set(r.ad_units.id, {
+        external_id: r.ad_units.external_id,
+        external_name: r.ad_units.external_name,
+      })
+    }
+  }
+
+  // 광고그룹 단위 집계: keyword 행의 metadata.ad_group_id로 그룹핑
+  const byGroup = new Map<string, {
+    ad_group_id: string
+    ad_group_name: string
+    campaign_id: string
+    campaign_name: string
+    kpi: Kpis
+  }>()
+  for (const r of rows) {
+    if (r.ad_units?.level !== 'keyword') continue
+    const meta = (r.ad_units.metadata ?? {}) as { ad_group_id?: string; ad_group_name?: string }
+    const groupId = meta.ad_group_id ?? ''
+    if (!groupId) continue
+    const parentId = r.ad_units.parent_id
+    const parent = parentId ? campaignsById.get(parentId) : undefined
+    const cur = byGroup.get(groupId) ?? {
+      ad_group_id: groupId,
+      ad_group_name: meta.ad_group_name ?? '',
+      campaign_id: parent?.external_id ?? '',
+      campaign_name: parent?.external_name ?? '',
+      kpi: emptyKpis,
+    }
+    cur.kpi = addKpis(cur.kpi, rowToKpis(r))
+    byGroup.set(groupId, cur)
+  }
+  return Array.from(byGroup.values())
+    .map((g) => ({
+      ad_group_id: g.ad_group_id,
+      ad_group_name: g.ad_group_name,
+      campaign_id: g.campaign_id,
+      campaign_name: g.campaign_name,
+      ...g.kpi,
+    }))
     .sort((a, b) => b.cost - a.cost)
 }
 

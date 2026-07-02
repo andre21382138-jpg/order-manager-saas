@@ -8,6 +8,7 @@ import {
   computeDaily,
   computeByType,
   computeCampaigns,
+  computeAdGroups,
   computeKeywords,
   type DateRange,
 } from '@/lib/queries/ad-stats'
@@ -16,6 +17,7 @@ import { AdKpiCards } from './ad-kpi-cards'
 import { DailyTable } from './daily-table'
 import { CampaignTypeTable } from './campaign-type-table'
 import { CampaignTable } from './campaign-table'
+import { AdGroupTable } from './ad-group-table'
 import { KeywordTable } from './keyword-table'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
@@ -49,6 +51,7 @@ export function AdStatsPage({
   const dailyData = useMemo(() => computeDaily(raw), [raw])
   const byTypeData = useMemo(() => computeByType(raw), [raw])
   const campaignsData = useMemo(() => computeCampaigns(raw), [raw])
+  const adGroupsData = useMemo(() => computeAdGroups(raw), [raw])
   const keywordsData = useMemo(() => computeKeywords(raw), [raw])
 
   if (!hasCredential) {
@@ -92,6 +95,12 @@ export function AdStatsPage({
         isLoading={isLoading}
         onRowClick={(u) => setTrendUnit(u)}
         onMapClick={(u) => setMapUnit(u)}
+      />
+
+      <AdGroupTable
+        data={adGroupsData}
+        campaigns={campaignsData}
+        isLoading={isLoading}
       />
 
       <KeywordTable

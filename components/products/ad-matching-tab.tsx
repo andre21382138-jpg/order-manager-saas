@@ -4,7 +4,9 @@ import useSWR from 'swr'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { getAdGroups, type AdGroupRow } from '@/lib/queries/products'
+import { AdMatchingImportModal } from './ad-matching-import-modal'
 
 type Mapping = {
   id: string
@@ -38,6 +40,7 @@ export function AdMatchingTab({
   const [campaignFilter, setCampaignFilter] = useState<string>('all')
   const [unmappedOnly, setUnmappedOnly] = useState(true)
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
 
   const groups = useSWR(['ad-groups', brandId], () => getAdGroups(supabase, brandId))
   const mappings = useSWR(['ad-group-mappings', brandId], () => fetchMappings(brandId))
@@ -147,6 +150,7 @@ export function AdMatchingTab({
             <CardTitle className="text-base">
               광고매칭 · 총 광고그룹 {totalGroups}개 · 매칭 {mappedCount} · 미매칭 {unmappedCount}
             </CardTitle>
+            <Button size="sm" onClick={() => setImportOpen(true)}>Excel Import</Button>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <select
@@ -247,6 +251,17 @@ export function AdMatchingTab({
           )}
         </CardContent>
       </Card>
+
+      {importOpen && (
+        <AdMatchingImportModal
+          brandId={brandId}
+          onClose={() => {
+            setImportOpen(false)
+            mappings.mutate()
+            router.refresh()
+          }}
+        />
+      )}
     </div>
   )
 }

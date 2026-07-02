@@ -9,6 +9,7 @@ import {
   Package,
   Settings,
   Menu,
+  FileText,
 } from 'lucide-react'
 import {
   Sheet,
@@ -27,10 +28,11 @@ type MenuItem = {
 
 const MENUS: MenuItem[] = [
   { href: '', label: '홈', icon: Home },
-  { href: '/orders', label: '매출', icon: BarChart3 },
-  { href: '/ad-stats', label: '광고', icon: Megaphone },
-  { href: '/products', label: '상품', icon: Package },
-  { href: '/settings/connections', label: '설정', icon: Settings },
+  { href: '/orders', label: '매출조회', icon: BarChart3 },
+  { href: '/ad-stats', label: '광고조회', icon: Megaphone },
+  { href: '/reports', label: '결산조회', icon: FileText },
+  { href: '/products', label: '상품설정', icon: Package },
+  { href: '/settings/connections', label: 'API 연동', icon: Settings },
 ]
 
 function MenuList({

@@ -717,6 +717,7 @@ const smartstoreAdapter = {
     let totalUpserted = 0
     let page = 1
     const pageSize = 500
+    const pageStats = []
 
     while (true) {
       let r
@@ -792,15 +793,31 @@ const smartstoreAdapter = {
         totalUpserted += count ?? rows.length
       }
 
-      // 다음 페이지가 없으면 종료
+      // 페이지 메타 기록 (진단용)
+      pageStats.push({
+        page,
+        contents_len: contents.length,
+        totalElements: r.data?.totalElements ?? null,
+        totalPages: r.data?.totalPages ?? null,
+        last: r.data?.last ?? null,
+        number: r.data?.number ?? null,
+        size: r.data?.size ?? null,
+      })
+
+      // 다음 페이지 결정 (여러 응답 구조 대응)
       const totalPages = Number(r.data?.totalPages ?? 0)
-      const isLast = Boolean(r.data?.last) || (totalPages > 0 && page >= totalPages)
-      if (isLast || contents.length < pageSize) break
+      const totalElements = Number(r.data?.totalElements ?? 0)
+      const isLast = r.data?.last === true
+        || (totalPages > 0 && page >= totalPages)
+        || (totalElements > 0 && totalUpserted >= totalElements)
+        || contents.length < pageSize
+      if (isLast) break
       page++
+      if (page > 200) break // safety
       await new Promise((resolve) => setTimeout(resolve, 300))
     }
 
-    return { ok: true, rowsUpserted: totalUpserted }
+    return { ok: true, rowsUpserted: totalUpserted, meta: { pages: pageStats } }
   },
 }
 

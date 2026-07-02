@@ -34,6 +34,14 @@ export type CatalogProductRow = {
   updatedAt: string
 }
 
+export type AdGroupRow = {
+  adGroupId: string
+  adGroupName: string
+  campaignId: string
+  campaignName: string
+  keywordCount: number
+}
+
 export type CategorySalesRow = {
   categoryId: string | null
   categoryName: string
@@ -185,6 +193,26 @@ export async function getCatalogProducts(
     price: r.price === null ? null : toNum(r.price),
     cost: r.cost === null ? null : toNum(r.cost),
     updatedAt: r.updated_at,
+  }))
+}
+
+export async function getAdGroups(
+  supabase: SupabaseClient,
+  brandId: string
+): Promise<AdGroupRow[]> {
+  const data = await fetchAllPages<{
+    ad_group_id: string
+    ad_group_name: string
+    campaign_id: string
+    campaign_name: string
+    keyword_count: number
+  }>(supabase, 'get_ad_groups', { p_brand_id: brandId }, '광고그룹 조회 실패')
+  return data.map((r) => ({
+    adGroupId: r.ad_group_id,
+    adGroupName: r.ad_group_name ?? '',
+    campaignId: r.campaign_id ?? '',
+    campaignName: r.campaign_name ?? '',
+    keywordCount: Number(r.keyword_count ?? 0),
   }))
 }
 

@@ -5,6 +5,7 @@ import type { Route } from 'next'
 import { cn } from '@/lib/utils'
 import { ProductInfoTab } from './product-info-tab'
 import { CategoryTab } from './category-tab'
+import { AdMatchingTab } from './ad-matching-tab'
 
 export type Store = {
   channel: 'cafe24' | 'smartstore'
@@ -18,7 +19,7 @@ type Props = {
   activeChannel: 'cafe24' | 'smartstore' | null
 }
 
-type SubTab = 'info' | 'category'
+type SubTab = 'info' | 'category' | 'ad-matching'
 
 export function ProductsClient({ brandId, stores, activeMall, activeChannel }: Props) {
   const [tab, setTab] = useState<SubTab>('info')
@@ -70,6 +71,7 @@ export function ProductsClient({ brandId, stores, activeMall, activeChannel }: P
         {[
           { key: 'info' as SubTab, label: '상품정보' },
           { key: 'category' as SubTab, label: '상품구분' },
+          { key: 'ad-matching' as SubTab, label: '광고매칭' },
         ].map((t) => (
           <button
             key={t.key}
@@ -88,10 +90,14 @@ export function ProductsClient({ brandId, stores, activeMall, activeChannel }: P
       </div>
 
       {/* 탭 컨텐츠 */}
-      {tab === 'info' ? (
+      {tab === 'info' && (
         <ProductInfoTab brandId={brandId} mall={activeMall} channel={activeChannel} />
-      ) : (
+      )}
+      {tab === 'category' && (
         <CategoryTab brandId={brandId} mall={activeMall} channel={activeChannel} />
+      )}
+      {tab === 'ad-matching' && (
+        <AdMatchingTab brandId={brandId} channel={activeChannel} />
       )}
     </div>
   )

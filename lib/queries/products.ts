@@ -9,6 +9,14 @@ export type ProductInfoRow = {
   cost: number | null
 }
 
+export type UnmappedProductRow = {
+  productNo: string
+  productName: string
+  price: number | null
+  recentQty: number
+  recentAmount: number
+}
+
 export type CategorySalesRow = {
   categoryId: string | null
   categoryName: string
@@ -71,6 +79,33 @@ export async function getProductInfo(
       productName: r.product_name,
       price: r.price === null ? null : toNum(r.price),
       cost: r.cost === null ? null : toNum(r.cost),
+    })
+  )
+}
+
+export async function getUnmappedProducts(
+  supabase: SupabaseClient,
+  brandId: string,
+  mall: string
+): Promise<UnmappedProductRow[]> {
+  const { data, error } = await supabase.rpc('get_unmapped_products', {
+    p_brand_id: brandId,
+    p_mall: mall,
+  })
+  if (error) throw new Error(`미매핑 상품 조회 실패: ${error.message}`)
+  return (data ?? []).map(
+    (r: {
+      product_no: string
+      product_name: string
+      price: number | string | null
+      recent_qty: number | string
+      recent_amount: number | string
+    }) => ({
+      productNo: r.product_no,
+      productName: r.product_name,
+      price: r.price === null ? null : toNum(r.price),
+      recentQty: Number(r.recent_qty ?? 0),
+      recentAmount: toNum(r.recent_amount),
     })
   )
 }

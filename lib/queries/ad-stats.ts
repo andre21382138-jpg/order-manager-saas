@@ -57,7 +57,9 @@ type RawStatsRow = {
   } | null
 }
 
-async function fetchAllRows(
+export type AdStatsRawRows = RawStatsRow[]
+
+export async function getAllAdStatsRows(
   supabase: SupabaseClient,
   brandId: string,
   range: DateRange
@@ -107,7 +109,7 @@ export async function getKpis(
   brandId: string,
   range: DateRange
 ): Promise<Kpis> {
-  const rows = await fetchAllRows(supabase, brandId, range)
+  const rows = await getAllAdStatsRows(supabase, brandId, range)
   // campaign 행만 합산 (keyword 행은 campaign 안에 포함되므로 중복 방지)
   return rows
     .filter((r) => r.ad_units?.level === 'campaign')
@@ -119,7 +121,7 @@ export async function getDaily(
   brandId: string,
   range: DateRange
 ): Promise<DailyRow[]> {
-  const rows = await fetchAllRows(supabase, brandId, range)
+  const rows = await getAllAdStatsRows(supabase, brandId, range)
   const byDate = new Map<string, Kpis>()
   for (const r of rows) {
     if (r.ad_units?.level !== 'campaign') continue
@@ -136,7 +138,7 @@ export async function getByType(
   brandId: string,
   range: DateRange
 ): Promise<ByTypeRow[]> {
-  const rows = await fetchAllRows(supabase, brandId, range)
+  const rows = await getAllAdStatsRows(supabase, brandId, range)
   const byType = new Map<string, Kpis>()
   for (const r of rows) {
     if (r.ad_units?.level !== 'campaign') continue
@@ -154,7 +156,7 @@ export async function getCampaigns(
   brandId: string,
   range: DateRange
 ): Promise<CampaignRow[]> {
-  const rows = await fetchAllRows(supabase, brandId, range)
+  const rows = await getAllAdStatsRows(supabase, brandId, range)
   const byUnit = new Map<string, { meta: RawStatsRow; kpi: Kpis }>()
   for (const r of rows) {
     if (r.ad_units?.level !== 'campaign') continue
@@ -178,8 +180,95 @@ export async function getKeywords(
   brandId: string,
   range: DateRange
 ): Promise<KeywordRow[]> {
-  const rows = await fetchAllRows(supabase, brandId, range)
+  const rows = await getAllAdStatsRows(supabase, brandId, range)
   // 캠페인 id→name 매핑 빌드 (parent_id로 lookup)
+  const campaignsById = new Map<string, { external_id: string; external_name: string }>()
+  for (const r of rows) {
+    if (r.ad_units?.level === 'campaign') {
+      campaignsById.set(r.ad_units.id, {
+        external_id: r.ad_units.external_id,
+        external_name: r.ad_units.external_name,
+      })
+    }
+  }
+  const byUnit = new Map<string, { meta: RawStatsRow; kpi: Kpis }>()
+  for (const r of rows) {
+    if (r.ad_units?.level !== 'keyword') continue
+    const id = r.ad_units.id
+    const cur = byUnit.get(id) ?? { meta: r, kpi: emptyKpis }
+    byUnit.set(id, { meta: r, kpi: addKpis(cur.kpi, rowToKpis(r)) })
+  }
+  return Array.from(byUnit.entries())
+    .map(([ad_unit_id, { meta, kpi }]) => {
+      const parentDb = meta.ad_units!.parent_id
+      const parent = parentDb ? campaignsById.get(parentDb) : undefined
+      const m = (meta.ad_units!.metadata ?? {}) as { ad_group_id?: string; ad_group_name?: string }
+      return {
+        ad_unit_id,
+        keyword_id: meta.ad_units!.external_id,
+        keyword_name: meta.ad_units!.external_name,
+        campaign_id: parent?.external_id ?? '',
+        campaign_name: parent?.external_name ?? '',
+        ad_group_name: m.ad_group_name ?? '',
+        ...kpi,
+      }
+    })
+    .sort((a, b) => b.cost - a.cost)
+}
+
+// 아래는 미리 fetch한 raw rows로부터 각 view를 계산하는 순수 함수 (SWR 중복 fetch 방지)
+
+export function computeKpis(rows: RawStatsRow[]): Kpis {
+  return rows
+    .filter((r) => r.ad_units?.level === 'campaign')
+    .reduce((acc, r) => addKpis(acc, rowToKpis(r)), emptyKpis)
+}
+
+export function computeDaily(rows: RawStatsRow[]): DailyRow[] {
+  const byDate = new Map<string, Kpis>()
+  for (const r of rows) {
+    if (r.ad_units?.level !== 'campaign') continue
+    const cur = byDate.get(r.date) ?? emptyKpis
+    byDate.set(r.date, addKpis(cur, rowToKpis(r)))
+  }
+  return Array.from(byDate.entries())
+    .map(([date, k]) => ({ date, ...k }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+}
+
+export function computeByType(rows: RawStatsRow[]): ByTypeRow[] {
+  const byType = new Map<string, Kpis>()
+  for (const r of rows) {
+    if (r.ad_units?.level !== 'campaign') continue
+    const type = String((r.ad_units?.metadata as { type?: string })?.type ?? 'unknown')
+    const cur = byType.get(type) ?? emptyKpis
+    byType.set(type, addKpis(cur, rowToKpis(r)))
+  }
+  return Array.from(byType.entries())
+    .map(([type, k]) => ({ type, ...k }))
+    .sort((a, b) => b.cost - a.cost)
+}
+
+export function computeCampaigns(rows: RawStatsRow[]): CampaignRow[] {
+  const byUnit = new Map<string, { meta: RawStatsRow; kpi: Kpis }>()
+  for (const r of rows) {
+    if (r.ad_units?.level !== 'campaign') continue
+    const id = r.ad_units.id
+    const cur = byUnit.get(id) ?? { meta: r, kpi: emptyKpis }
+    byUnit.set(id, { meta: r, kpi: addKpis(cur.kpi, rowToKpis(r)) })
+  }
+  return Array.from(byUnit.entries())
+    .map(([ad_unit_id, { meta, kpi }]) => ({
+      ad_unit_id,
+      campaign_id: meta.ad_units!.external_id,
+      campaign_name: meta.ad_units!.external_name,
+      campaign_type: String((meta.ad_units!.metadata as { type?: string })?.type ?? 'unknown'),
+      ...kpi,
+    }))
+    .sort((a, b) => b.cost - a.cost)
+}
+
+export function computeKeywords(rows: RawStatsRow[]): KeywordRow[] {
   const campaignsById = new Map<string, { external_id: string; external_name: string }>()
   for (const r of rows) {
     if (r.ad_units?.level === 'campaign') {

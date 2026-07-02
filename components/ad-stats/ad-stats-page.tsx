@@ -1,13 +1,14 @@
 'use client'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { createBrowserClient } from '@/lib/supabase/client'
 import {
-  getKpis,
-  getDaily,
-  getByType,
-  getCampaigns,
-  getKeywords,
+  getAllAdStatsRows,
+  computeKpis,
+  computeDaily,
+  computeByType,
+  computeCampaigns,
+  computeKeywords,
   type DateRange,
 } from '@/lib/queries/ad-stats'
 import { DateRangeFilter, defaultRange } from './date-range-filter'
@@ -36,30 +37,19 @@ export function AdStatsPage({
   const [mapUnit, setMapUnit] = useState<MapUnit | null>(null)
   const supabase = createBrowserClient()
 
-  const kpis = useSWR(
-    hasCredential ? ['kpis', brand.id, range.from, range.to] : null,
-    () => getKpis(supabase, brand.id, range)
+  // 원본 rows를 한 번만 fetch하고 5개 view는 useMemo로 파생 (기존엔 SWR 5개가 각각 fetch → 5x 부하)
+  const rows = useSWR(
+    hasCredential ? ['ad-stats-rows', brand.id, range.from, range.to] : null,
+    () => getAllAdStatsRows(supabase, brand.id, range)
   )
+  const isLoading = rows.isLoading
+  const raw = rows.data ?? []
 
-  const daily = useSWR(
-    hasCredential ? ['daily', brand.id, range.from, range.to] : null,
-    () => getDaily(supabase, brand.id, range)
-  )
-
-  const byType = useSWR(
-    hasCredential ? ['byType', brand.id, range.from, range.to] : null,
-    () => getByType(supabase, brand.id, range)
-  )
-
-  const campaigns = useSWR(
-    hasCredential ? ['campaigns', brand.id, range.from, range.to] : null,
-    () => getCampaigns(supabase, brand.id, range)
-  )
-
-  const keywords = useSWR(
-    hasCredential ? ['keywords', brand.id, range.from, range.to] : null,
-    () => getKeywords(supabase, brand.id, range)
-  )
+  const kpisData = useMemo(() => computeKpis(raw), [raw])
+  const dailyData = useMemo(() => computeDaily(raw), [raw])
+  const byTypeData = useMemo(() => computeByType(raw), [raw])
+  const campaignsData = useMemo(() => computeCampaigns(raw), [raw])
+  const keywordsData = useMemo(() => computeKeywords(raw), [raw])
 
   if (!hasCredential) {
     return (
@@ -92,22 +82,22 @@ export function AdStatsPage({
         <DateRangeFilter value={range} onChange={setRange} />
       </div>
 
-      <AdKpiCards data={kpis.data} isLoading={kpis.isLoading} />
+      <AdKpiCards data={kpisData} isLoading={isLoading} />
 
-      <DailyTable data={daily.data ?? []} isLoading={daily.isLoading} />
-      <CampaignTypeTable data={byType.data ?? []} isLoading={byType.isLoading} />
+      <DailyTable data={dailyData} isLoading={isLoading} />
+      <CampaignTypeTable data={byTypeData} isLoading={isLoading} />
 
       <CampaignTable
-        data={campaigns.data ?? []}
-        isLoading={campaigns.isLoading}
+        data={campaignsData}
+        isLoading={isLoading}
         onRowClick={(u) => setTrendUnit(u)}
         onMapClick={(u) => setMapUnit(u)}
       />
 
       <KeywordTable
-        data={keywords.data ?? []}
-        campaigns={campaigns.data ?? []}
-        isLoading={keywords.isLoading}
+        data={keywordsData}
+        campaigns={campaignsData}
+        isLoading={isLoading}
         onRowClick={(u) => setTrendUnit(u)}
       />
 

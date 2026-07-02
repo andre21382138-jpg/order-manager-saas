@@ -114,8 +114,8 @@ export function MappingManager({
           </div>
 
           <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
-            💡 표에서 dropdown으로 바로 상품구분을 지정하거나, TSV 복사 후 Excel에서 일괄 편집 후 재 import 하세요.
-            <b className="ml-1">주의</b>: Excel 재 import 시 기존 매핑이 전체 교체되므로, 여기서 직접 지정한 매핑도 Excel에 반영해두세요.
+            💡 표에서 dropdown으로 바로 상품구분을 지정하거나, TSV 복사 후 Excel로 일괄 편집 후 재 import 하세요.
+            Excel Import는 <b>병합 저장</b>이므로 여기서 지정한 매핑은 재 import 후에도 보존됩니다.
           </div>
 
           <div className="max-h-[60vh] overflow-y-auto">

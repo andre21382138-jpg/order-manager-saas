@@ -89,36 +89,43 @@ export async function POST(
 
   const admin = createAdminClient()
 
-  // 전체 교체: 기존 categories 삭제 → CASCADE로 product_category_mappings + campaign_product_mappings 정리
-  const { error: delErr } = await admin
-    .from('product_categories')
-    .delete()
-    .eq('brand_id', brandId)
-  if (delErr) {
-    return NextResponse.json(
-      { error: `기존 카테고리 삭제 실패: ${delErr.message}` },
-      { status: 500 }
-    )
+  // 누적 저장 (병합): 기존 categories/mappings 유지, 새 것 upsert.
+  // - 같은 카테고리명은 재사용 (INSERT ... ON CONFLICT DO NOTHING → 기존 id 재조회)
+  // - 같은 상품코드는 카테고리 갱신 (UPSERT)
+  // - Excel에 없는 기존 매핑(예: UI에서 수동 지정)은 보존
+
+  // 1. 요청된 카테고리명 중 미존재 것만 insert
+  const requestedNames = Array.from(categorySet)
+  if (requestedNames.length > 0) {
+    const { error: catInsErr } = await admin
+      .from('product_categories')
+      .upsert(
+        requestedNames.map((name) => ({ brand_id: brandId, name })),
+        { onConflict: 'brand_id,name', ignoreDuplicates: true }
+      )
+    if (catInsErr) {
+      return NextResponse.json(
+        { error: `카테고리 저장 실패: ${catInsErr.message}` },
+        { status: 500 }
+      )
+    }
   }
 
-  // categories insert
-  const categoryRows = Array.from(categorySet).map((name) => ({
-    brand_id: brandId,
-    name,
-  }))
-  const { data: insertedCats, error: catErr } = await admin
+  // 2. 카테고리 id 매핑 (기존 + 새로 추가한 것 모두 조회)
+  const { data: allCats, error: catSelErr } = await admin
     .from('product_categories')
-    .insert(categoryRows)
     .select('id, name')
-  if (catErr || !insertedCats) {
+    .eq('brand_id', brandId)
+    .in('name', requestedNames.length > 0 ? requestedNames : [''])
+  if (catSelErr) {
     return NextResponse.json(
-      { error: `카테고리 저장 실패: ${catErr?.message}` },
+      { error: `카테고리 조회 실패: ${catSelErr.message}` },
       { status: 500 }
     )
   }
-  const catIdByName = new Map(insertedCats.map((c) => [c.name, c.id]))
+  const catIdByName = new Map((allCats ?? []).map((c) => [c.name, c.id]))
 
-  // mappings insert (product_no 기반)
+  // 3. mappings upsert
   const mappingRows = Array.from(finalMap.entries()).map(([productNo, v]) => ({
     brand_id: brandId,
     category_id: catIdByName.get(v.category)!,
@@ -126,25 +133,25 @@ export async function POST(
     product_name: v.productName,
   }))
   const CHUNK = 1000
-  let inserted = 0
+  let upserted = 0
   for (let i = 0; i < mappingRows.length; i += CHUNK) {
     const batch = mappingRows.slice(i, i + CHUNK)
     const { error: mapErr } = await admin
       .from('product_category_mappings')
-      .insert(batch)
+      .upsert(batch, { onConflict: 'brand_id,product_no' })
     if (mapErr) {
       return NextResponse.json(
         { error: `매핑 저장 실패 (batch ${i}): ${mapErr.message}` },
         { status: 500 }
       )
     }
-    inserted += batch.length
+    upserted += batch.length
   }
 
   return NextResponse.json({
     ok: true,
-    categoriesCount: categoryRows.length,
-    mappingsCount: inserted,
+    categoriesCount: requestedNames.length,
+    mappingsCount: upserted,
     conflicts,
     skippedNoCode,
     elapsedMs: Date.now() - started,

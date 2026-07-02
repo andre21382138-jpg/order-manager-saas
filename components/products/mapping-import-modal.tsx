@@ -64,9 +64,9 @@ export function MappingImportModal({
         </DialogHeader>
 
         <div className="space-y-3">
-          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-            ⚠️ 업로드하면 이 브랜드의 기존 카테고리와 매핑이 <b>전체 삭제 후 재구축</b>됩니다.
-            연결된 광고 매칭(campaign_product_mappings)도 삭제됩니다.
+          <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
+            ℹ️ <b>병합 저장</b>: 기존 매핑은 유지되고, 엑셀의 상품코드에 대해서만 상품구분이 upsert 됩니다.
+            UI로 지정한 매핑도 보존됩니다.
           </div>
 
           <div className="text-sm">

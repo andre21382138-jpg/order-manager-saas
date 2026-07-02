@@ -105,10 +105,12 @@ export async function getUnmappedProducts(
   brandId: string,
   mall: string
 ): Promise<UnmappedProductRow[]> {
-  const { data, error } = await supabase.rpc('get_unmapped_products', {
-    p_brand_id: brandId,
-    p_mall: mall,
-  })
+  const { data, error } = await supabase
+    .rpc('get_unmapped_products', {
+      p_brand_id: brandId,
+      p_mall: mall,
+    })
+    .range(0, 49999)
   if (error) throw new Error(`미매핑 상품 조회 실패: ${error.message}`)
   return (data ?? []).map(
     (r: {
@@ -132,10 +134,12 @@ export async function getMappedProducts(
   brandId: string,
   mall: string
 ): Promise<MappedProductRow[]> {
-  const { data, error } = await supabase.rpc('get_mapped_products', {
-    p_brand_id: brandId,
-    p_mall: mall,
-  })
+  const { data, error } = await supabase
+    .rpc('get_mapped_products', {
+      p_brand_id: brandId,
+      p_mall: mall,
+    })
+    .range(0, 49999)
   if (error) throw new Error(`매핑 상품 조회 실패: ${error.message}`)
   return (data ?? []).map(
     (r: {
@@ -159,10 +163,12 @@ export async function getCatalogProducts(
   brandId: string,
   mall: string
 ): Promise<CatalogProductRow[]> {
-  const { data, error } = await supabase.rpc('get_catalog_products', {
-    p_brand_id: brandId,
-    p_mall: mall,
-  })
+  const { data, error } = await supabase
+    .rpc('get_catalog_products', {
+      p_brand_id: brandId,
+      p_mall: mall,
+    })
+    .range(0, 49999)
   if (error) throw new Error(`상품 catalog 조회 실패: ${error.message}`)
   return (data ?? []).map(
     (r: {

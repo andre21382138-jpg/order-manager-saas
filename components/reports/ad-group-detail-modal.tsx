@@ -11,6 +11,15 @@ function fmtCount(n: number): string {
   return n.toLocaleString('ko-KR')
 }
 
+const CAMPAIGN_TYPE_LABEL: Record<string, string> = {
+  WEB_SITE: '파워링크',
+  SHOPPING: '쇼핑검색',
+  POWER_CONTENTS: '파워컨텐츠',
+  BRAND_SEARCH: '브랜드검색',
+  BRAND_SEARCH_ADS: '브랜드검색ADS',
+  PLACE: '플레이스',
+}
+
 export function AdGroupDetailModal({
   brandId,
   categoryId,
@@ -58,6 +67,7 @@ export function AdGroupDetailModal({
               <thead className="sticky top-0 bg-background">
                 <tr className="border-b text-left text-muted-foreground">
                   <th className="py-2 pr-4">캠페인</th>
+                  <th className="py-2 pr-4">광고영역</th>
                   <th className="py-2 pr-4">광고그룹</th>
                   <th className="whitespace-nowrap py-2 pr-4 text-right">광고비</th>
                   <th className="whitespace-nowrap py-2 pr-4 text-right">노출</th>
@@ -71,12 +81,12 @@ export function AdGroupDetailModal({
               <tbody>
                 {details.isLoading && (
                   <tr>
-                    <td colSpan={9} className="py-4 text-center text-muted-foreground">불러오는 중...</td>
+                    <td colSpan={10} className="py-4 text-center text-muted-foreground">불러오는 중...</td>
                   </tr>
                 )}
                 {!details.isLoading && rows.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="py-4 text-center text-muted-foreground">
+                    <td colSpan={10} className="py-4 text-center text-muted-foreground">
                       매칭된 광고그룹이 없거나 기간 내 광고 데이터가 없습니다.
                     </td>
                   </tr>
@@ -84,9 +94,11 @@ export function AdGroupDetailModal({
                 {rows.map((r) => {
                   const roas = r.cost === 0 ? 0 : (r.conversionRevenue / r.cost) * 100
                   const cpc = r.clicks === 0 ? 0 : r.cost / r.clicks
+                  const areaLabel = CAMPAIGN_TYPE_LABEL[r.campaignType] ?? (r.campaignType || '-')
                   return (
                     <tr key={r.adGroupId} className="border-b">
                       <td className="py-2 pr-4">{r.campaignName || '-'}</td>
+                      <td className="py-2 pr-4">{areaLabel}</td>
                       <td className="py-2 pr-4 font-medium">{r.adGroupName || r.adGroupId}</td>
                       <td className="whitespace-nowrap py-2 pr-4 text-right">{fmtWon(r.cost)}</td>
                       <td className="whitespace-nowrap py-2 pr-4 text-right">{fmtCount(r.impressions)}</td>

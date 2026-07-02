@@ -19,6 +19,7 @@ export type AdGroupDetailRow = {
   adGroupId: string
   adGroupName: string
   campaignName: string
+  campaignType: string
   cost: number
   impressions: number
   clicks: number
@@ -101,6 +102,7 @@ export async function getCategoryAdGroupDetails(
     ad_group_id: string
     ad_group_name: string
     campaign_name: string
+    campaign_type: string | null
     cost: number | string
     impressions: number | string
     clicks: number | string
@@ -110,6 +112,7 @@ export async function getCategoryAdGroupDetails(
     adGroupId: r.ad_group_id,
     adGroupName: r.ad_group_name ?? '',
     campaignName: r.campaign_name ?? '',
+    campaignType: r.campaign_type ?? '',
     cost: toNum(r.cost),
     impressions: Number(r.impressions ?? 0),
     clicks: Number(r.clicks ?? 0),

@@ -18,7 +18,7 @@ export async function GET(
     .from('brand_credentials')
     .select('id')
     .eq('brand_id', brandId)
-    .eq('channel', 'cafe24')
+    .in('channel', ['cafe24', 'smartstore'])
     .eq('channel_account', mall)
     .single()
   if (!cred) {

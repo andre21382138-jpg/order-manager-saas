@@ -206,6 +206,7 @@ const cafe24Adapter = {
 
       const rows = products.map((p) => ({
         brand_id: brandId,
+        channel_account: channelAccount,
         product_no: String(p.product_no ?? p.product_code ?? ''),
         product_name: String(p.product_name ?? ''),
         price: Number(p.price ?? 0),
@@ -220,7 +221,7 @@ const cafe24Adapter = {
 
       const { error: upsertErr, count } = await admin
         .from('catalog_products')
-        .upsert(rows, { onConflict: 'brand_id,product_no', count: 'exact' })
+        .upsert(rows, { onConflict: 'brand_id,channel_account,product_no', count: 'exact' })
 
       if (upsertErr) {
         return {
@@ -693,6 +694,113 @@ const smartstoreAdapter = {
       rowsUpserted: totalOrdersUpserted,
       meta: { items_inserted: totalItemsInserted },
     }
+  },
+
+  async syncProducts(creds, ctx) {
+    const { clientId, clientSecret } = creds
+    const brandId = ctx.brandId
+    const channelAccount = ctx.channelAccount
+    if (!clientId || !clientSecret || !brandId || !channelAccount) {
+      return { ok: false, error: 'syncProducts: 필수 인자 누락', retryable: false }
+    }
+
+    const { createAdminClient } = require('./supabase')
+    const admin = createAdminClient()
+
+    let accessToken
+    try {
+      accessToken = await getSmartstoreToken(clientId, clientSecret)
+    } catch (e) {
+      return { ok: false, error: e.message, retryable: true }
+    }
+
+    let totalUpserted = 0
+    let page = 1
+    const pageSize = 500
+
+    while (true) {
+      let r
+      try {
+        r = await httpsRequest(
+          'https://api.commerce.naver.com/external/v1/products/search',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              productStatusTypes: ['SALE', 'WAIT', 'OUTOFSTOCK', 'SUSPENSION', 'CLOSE'],
+              page,
+              size: pageSize,
+              orderType: 'NO',
+            }),
+          }
+        )
+      } catch (e) {
+        return { ok: false, error: `smartstore products 호출 실패: ${e.message}`, retryable: true }
+      }
+
+      if (r.status === 401) {
+        smartstoreTokenCache.delete(clientId)
+        return { ok: false, error: 'smartstore access_token 만료 (401)', retryable: true }
+      }
+      if (r.status !== 200) {
+        return {
+          ok: false,
+          error: `smartstore products API 에러 (${r.status}): ${JSON.stringify(r.data).slice(0, 200)}`,
+          retryable: true,
+        }
+      }
+
+      const contents = Array.isArray(r.data?.contents) ? r.data.contents : []
+      if (contents.length === 0) break
+
+      const rows = contents.map((p) => {
+        // channelProducts 배열의 첫 번째 (STOREFARM 채널)를 우선 사용
+        const chan = (Array.isArray(p.channelProducts) && p.channelProducts[0]) || p
+        const productNo = String(chan.channelProductNo || p.channelProductNo || p.originProductNo || '')
+        return {
+          brand_id: brandId,
+          channel_account: channelAccount,
+          product_no: productNo,
+          product_name: String(chan.name || p.name || ''),
+          price: Number(chan.salePrice ?? p.salePrice ?? 0),
+          supply_price: 0,
+          retail_price: Number(chan.discountedPrice ?? chan.salePrice ?? p.salePrice ?? 0),
+          small_image: String(
+            chan.representativeImage?.url || p.representativeImage?.url || ''
+          ),
+          summary_description: '',
+          manufacturer: String(chan.brandName || p.brandName || ''),
+          weight: 0,
+          updated_at: new Date().toISOString(),
+        }
+      }).filter((r) => r.product_no !== '')
+
+      if (rows.length > 0) {
+        const { error: upsertErr, count } = await admin
+          .from('catalog_products')
+          .upsert(rows, { onConflict: 'brand_id,channel_account,product_no', count: 'exact' })
+        if (upsertErr) {
+          return {
+            ok: false,
+            error: `catalog_products upsert 실패: ${upsertErr.message}`,
+            retryable: true,
+          }
+        }
+        totalUpserted += count ?? rows.length
+      }
+
+      // 다음 페이지가 없으면 종료
+      const totalPages = Number(r.data?.totalPages ?? 0)
+      const isLast = Boolean(r.data?.last) || (totalPages > 0 && page >= totalPages)
+      if (isLast || contents.length < pageSize) break
+      page++
+      await new Promise((resolve) => setTimeout(resolve, 300))
+    }
+
+    return { ok: true, rowsUpserted: totalUpserted }
   },
 }
 

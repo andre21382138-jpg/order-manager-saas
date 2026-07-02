@@ -30,12 +30,12 @@ export async function POST(
     .from('brand_credentials')
     .select('id, channel, channel_account')
     .eq('brand_id', brandId)
-    .eq('channel', 'cafe24')
+    .in('channel', ['cafe24', 'smartstore'])
     .eq('channel_account', mall)
     .single()
   if (!cred) {
     return NextResponse.json(
-      { error: '카페24 스토어만 상품 동기화를 지원합니다' },
+      { error: '스토어를 찾을 수 없습니다' },
       { status: 400 }
     )
   }
@@ -46,7 +46,7 @@ export async function POST(
     .insert({
       brand_id: brandId,
       credential_id: cred.id,
-      channel: 'cafe24',
+      channel: cred.channel,
       job_type: 'products',
       status: 'pending',
     })

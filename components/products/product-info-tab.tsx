@@ -52,13 +52,13 @@ export function ProductInfoTab({
   const [running, setRunning] = useState(false)
 
   const status = useSWR(
-    channel === 'cafe24' ? ['product-sync-status', brandId, mall] : null,
+    channel ? ['product-sync-status', brandId, mall] : null,
     () => fetchSyncStatus(brandId, mall),
     { refreshInterval: running ? 3000 : 0 }
   )
 
   const catalog = useSWR(
-    channel === 'cafe24' ? ['catalog-products', brandId, mall] : null,
+    channel ? ['catalog-products', brandId, mall] : null,
     () => getCatalogProducts(supabase, brandId, mall)
   )
 
@@ -90,16 +90,17 @@ export function ProductInfoTab({
     status.mutate()
   }
 
-  if (channel !== 'cafe24') {
+  if (!channel) {
     return (
       <Card>
         <CardContent className="py-8 text-center text-sm text-muted-foreground">
-          🛠 <b>지원 예정</b> — 스마트스토어 상품 목록 불러오기는 준비 중입니다.
-          현재는 카페24 스토어에서만 상품 정보를 관리할 수 있습니다.
+          지원되지 않는 스토어입니다.
         </CardContent>
       </Card>
     )
   }
+
+  const channelLabel = channel === 'cafe24' ? '카페24' : '스마트스토어'
 
   const rows = catalog.data ?? []
   const inProgress = running || latest?.status === 'pending' || latest?.status === 'running'
@@ -134,7 +135,7 @@ export function ProductInfoTab({
               </span>
             )}
             <Button size="sm" onClick={triggerSync} disabled={inProgress}>
-              {inProgress ? '🔄 불러오는 중...' : '🔄 카페24 상품 불러오기'}
+              {inProgress ? '🔄 불러오는 중...' : `🔄 ${channelLabel} 상품 불러오기`}
             </Button>
           </div>
         </div>
@@ -166,7 +167,7 @@ export function ProductInfoTab({
               {!catalog.isLoading && rows.length === 0 && (
                 <tr>
                   <td colSpan={4} className="py-4 text-center text-muted-foreground">
-                    상품이 없습니다. 위의 <b>[카페24 상품 불러오기]</b> 버튼을 눌러 카페24에서 최신 목록을 받아오세요.
+                    상품이 없습니다. 위의 <b>[{channelLabel} 상품 불러오기]</b> 버튼을 눌러 {channelLabel}에서 최신 목록을 받아오세요.
                   </td>
                 </tr>
               )}

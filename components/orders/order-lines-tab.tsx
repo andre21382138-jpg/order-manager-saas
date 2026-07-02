@@ -76,7 +76,7 @@ export function OrderLinesTab({
             <table className="w-full text-sm table-fixed">
               <colgroup>
                 <col className="w-24" />
-                <col className="w-28" />
+                <col className="w-44" />
                 <col className="w-32" />
                 <col style={{ width: '30%' }} />
                 <col style={{ width: '30%' }} />
@@ -105,8 +105,8 @@ export function OrderLinesTab({
                 {visible.map((r, i) => (
                   <tr key={`${r.orderNo}-${r.productNo ?? ''}-${i}`} className="border-b align-top">
                     <td className="whitespace-nowrap py-2 pr-4">{r.orderDate}</td>
-                    <td className="whitespace-nowrap py-2 pr-4 font-mono text-xs">{r.orderNo}</td>
-                    <td className="py-2 pr-4 truncate">
+                    <td className="py-2 pr-4 font-mono text-xs break-all">{r.orderNo}</td>
+                    <td className="py-2 pr-4 break-words">
                       {r.categoryName}
                       {r.categoryName === '미분류' && (
                         <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-xs text-amber-800">⚠️</span>

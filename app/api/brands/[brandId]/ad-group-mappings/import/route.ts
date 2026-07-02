@@ -3,9 +3,21 @@ import * as XLSX from 'xlsx'
 import { createServerClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-type ExcelRow = {
-  광고그룹?: string | number
-  상품구분?: string | number
+type ExcelRow = Record<string, string | number | undefined>
+
+function normalize(s: string): string {
+  return s.replace(/\s+/g, '').toLowerCase()
+}
+const AD_GROUP_ALIASES = ['광고그룹', '광고그룹명', 'adgroup', 'adgroupname', '그룹', '그룹명']
+const CATEGORY_ALIASES = ['상품구분', '상품구분명', 'category', 'categoryname', '구분', '구분명']
+
+function findKey(row: ExcelRow, aliases: string[]): string | null {
+  const keys = Object.keys(row)
+  const normalizedAliases = aliases.map(normalize)
+  for (const k of keys) {
+    if (normalizedAliases.includes(normalize(k))) return k
+  }
+  return null
 }
 
 export async function POST(
@@ -43,9 +55,14 @@ export async function POST(
     return NextResponse.json({ error: '빈 시트' }, { status: 400 })
   }
   const first = rowsRaw[0]
-  if (!('광고그룹' in first) || !('상품구분' in first)) {
+  const groupKey = findKey(first, AD_GROUP_ALIASES)
+  const catKey = findKey(first, CATEGORY_ALIASES)
+  if (!groupKey || !catKey) {
+    const detected = Object.keys(first).join(', ')
     return NextResponse.json(
-      { error: '필수 컬럼(광고그룹, 상품구분) 누락' },
+      {
+        error: `필수 컬럼(광고그룹, 상품구분)을 찾지 못했습니다. 감지된 헤더: [${detected}]. 지원 별칭: 광고그룹|Adgroup|그룹, 상품구분|Category|구분`,
+      },
       { status: 400 }
     )
   }
@@ -92,8 +109,8 @@ export async function POST(
 
   for (let i = 0; i < rowsRaw.length; i++) {
     const r = rowsRaw[i]
-    const groupName = String(r.광고그룹 ?? '').trim()
-    const catName = String(r.상품구분 ?? '').trim()
+    const groupName = String(r[groupKey] ?? '').trim()
+    const catName = String(r[catKey] ?? '').trim()
     if (!groupName || !catName) {
       skipped++
       continue

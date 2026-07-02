@@ -44,6 +44,18 @@ export type TrafficRow = {
   share: number
 }
 
+export type OrderLineRow = {
+  orderDate: string
+  orderNo: string
+  mallType: string
+  categoryName: string
+  productNo: string | null
+  productName: string
+  optionValue: string | null
+  qty: number
+  amount: number
+}
+
 function toNum(v: number | string | null | undefined): number {
   if (typeof v === 'number') return v
   if (typeof v === 'string') return Number(v) || 0
@@ -230,4 +242,54 @@ export async function getTrafficSources(
     .map((r) => ({ ...r, share: total > 0 ? (r.visits / total) * 100 : 0 }))
     .sort((a, b) => b.visits - a.visits)
     .slice(0, 10)
+}
+
+export async function getOrderLines(
+  supabase: SupabaseClient,
+  brandId: string,
+  mall: string,
+  range: DateRange
+): Promise<OrderLineRow[]> {
+  const PAGE = 1000
+  const all: OrderLineRow[] = []
+  let from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .rpc('get_order_lines', {
+        p_brand_id: brandId,
+        p_mall: mall,
+        p_from: range.from,
+        p_to: range.to,
+      })
+      .range(from, from + PAGE - 1)
+    if (error) throw new Error(`주문 라인 조회 실패: ${error.message}`)
+    const chunk = (data ?? []) as Array<{
+      order_date: string
+      order_no: string
+      mall_type: string
+      category_name: string
+      product_no: string | null
+      product_name: string
+      option_value: string | null
+      qty: number | string
+      amount: number | string
+    }>
+    for (const r of chunk) {
+      all.push({
+        orderDate: r.order_date,
+        orderNo: r.order_no,
+        mallType: r.mall_type,
+        categoryName: r.category_name,
+        productNo: r.product_no,
+        productName: r.product_name,
+        optionValue: r.option_value,
+        qty: Number(r.qty ?? 0),
+        amount: toNum(r.amount),
+      })
+    }
+    if (chunk.length < PAGE) break
+    from += PAGE
+    if (from > 200000) break // safety
+  }
+  return all
 }

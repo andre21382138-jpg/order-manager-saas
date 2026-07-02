@@ -347,10 +347,12 @@ const cafe24Adapter = {
 
         const itemRows = orig.items.map((it) => {
           const rawNo = String(it.product_no ?? it.product_code ?? '').trim()
+          const rawOpt = String(it.option_value ?? it.additional_option_value ?? '').trim()
           return {
             order_id: saved.id,
             product_no: rawNo === '' ? null : rawNo,
             product_name: String(it.product_name ?? ''),
+            option_value: rawOpt === '' ? null : rawOpt,
             qty: Number(it.quantity ?? 0),
             amount: Number(it.product_price ?? 0),
           }
@@ -606,6 +608,7 @@ const smartstoreAdapter = {
       grp.items.push({
         product_no: String(po.productId || ''),
         product_name: po.productName || '상품',
+        option_value: (po.productOption || po.optionCode || '').toString().trim() || null,
         quantity: qty,
         order_price_amount: unitPrice,
       })
@@ -673,6 +676,7 @@ const smartstoreAdapter = {
             order_id: saved.id,
             product_no: rawNo === '' ? null : rawNo,
             product_name: String(it.product_name ?? ''),
+            option_value: it.option_value ?? null,
             category: '',
             qty: Number(it.quantity ?? 0),
             amount: Number(it.order_price_amount ?? 0),

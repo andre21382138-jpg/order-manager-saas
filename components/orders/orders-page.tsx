@@ -1,3 +1,6 @@
+'use client'
+import { useState } from 'react'
+import { cn } from '@/lib/utils'
 import { MallTabs } from './mall-tabs'
 import { DateRangeFilter } from './date-range-filter'
 import { OrdersKpiCards } from './orders-kpi-cards'
@@ -5,6 +8,7 @@ import { DailyOrdersTable } from './daily-orders-table'
 import { ProductRankingTable } from './product-ranking-table'
 import { VisitorStatsCard } from './visitor-stats-card'
 import { TrafficSourcesTable } from './traffic-sources-table'
+import { OrderLinesTab } from './order-lines-tab'
 import type {
   DateRange,
   OrderKpis,
@@ -28,6 +32,8 @@ type Props = {
   hasNewData: boolean
 }
 
+type SubTab = 'dashboard' | 'lines'
+
 export function OrdersPage({
   brand,
   malls,
@@ -41,10 +47,12 @@ export function OrdersPage({
   hasVisitors,
   hasNewData,
 }: Props) {
+  const [tab, setTab] = useState<SubTab>('dashboard')
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-2xl font-bold">{brand.name} — 매출 분석</h1>
+        <h1 className="text-2xl font-bold">{brand.name} — 매출조회</h1>
         <DateRangeFilter brandId={brand.id} mall={mall} value={range} />
       </div>
 
@@ -56,14 +64,41 @@ export function OrdersPage({
         </div>
       ) : (
         <>
-          <OrdersKpiCards data={kpis} showVisits={hasVisitors} showNew={hasNewData} />
-          <DailyOrdersTable data={daily} />
-          <ProductRankingTable data={products} />
-          {hasVisitors && (
-            <div className="grid gap-4 md:grid-cols-2">
-              <VisitorStatsCard data={visitors} />
-              <TrafficSourcesTable data={traffic} />
-            </div>
+          <div className="flex gap-1 border-b">
+            {[
+              { key: 'dashboard' as SubTab, label: '대시보드' },
+              { key: 'lines' as SubTab, label: '주문조회' },
+            ].map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTab(t.key)}
+                className={cn(
+                  'border-b-2 px-4 py-2 text-sm transition-colors',
+                  tab === t.key
+                    ? 'border-foreground font-medium'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'dashboard' ? (
+            <>
+              <OrdersKpiCards data={kpis} showVisits={hasVisitors} showNew={hasNewData} />
+              <DailyOrdersTable data={daily} />
+              <ProductRankingTable data={products} />
+              {hasVisitors && (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <VisitorStatsCard data={visitors} />
+                  <TrafficSourcesTable data={traffic} />
+                </div>
+              )}
+            </>
+          ) : (
+            <OrderLinesTab brandId={brand.id} mall={mall} range={range} />
           )}
         </>
       )}

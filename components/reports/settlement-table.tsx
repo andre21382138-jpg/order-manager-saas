@@ -31,16 +31,32 @@ export function SettlementTable({ rows, isLoading, onDetailClick }: Props) {
     )
   }, [rows, query])
 
-  // 같은 상품구분 그룹 내 첫 행 판별용 (미매핑 광고비 pseudo row는 항상 첫 행)
-  const isFirstInCategory = useMemo(() => {
-    const seen = new Set<string>()
-    return filtered.map((r) => {
-      if (r.isUnmappedAdRow) return true
+  // 같은 상품구분 그룹 내 첫 행 판별 + rowspan 계산
+  const { isFirstInCategory, rowspanByFirst } = useMemo(() => {
+    const isFirst: boolean[] = []
+    const counts = new Map<number, number>()  // firstIdx → 그룹 rowspan
+    let curFirstIdx = -1
+    let curKey: string | null = null
+    for (let i = 0; i < filtered.length; i++) {
+      const r = filtered[i]
+      if (r.isUnmappedAdRow) {
+        isFirst.push(true)
+        curFirstIdx = -1
+        curKey = null
+        continue
+      }
       const key = r.categoryId ?? '__unmapped__'
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
+      if (key !== curKey) {
+        isFirst.push(true)
+        curFirstIdx = i
+        curKey = key
+        counts.set(curFirstIdx, 1)
+      } else {
+        isFirst.push(false)
+        if (curFirstIdx >= 0) counts.set(curFirstIdx, (counts.get(curFirstIdx) ?? 1) + 1)
+      }
+    }
+    return { isFirstInCategory: isFirst, rowspanByFirst: counts }
   }, [filtered])
 
   const totalRevenue = useMemo(() => {
@@ -134,35 +150,59 @@ export function SettlementTable({ rows, isLoading, onDetailClick }: Props) {
                       </tr>
                     )
                   }
+                  const rowspan = first ? (rowspanByFirst.get(idx) ?? 1) : 0
                   return (
-                    <tr key={`${r.categoryId ?? '_'}-${r.productNo ?? ''}-${r.optionValue ?? ''}-${idx}`} className="border-b align-top">
-                      <td className="py-2 pr-4 font-medium break-words">
-                        {first ? r.categoryName : ''}
-                        {first && r.categoryId === null && (
-                          <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-xs text-amber-800">⚠️</span>
-                        )}
-                      </td>
+                    <tr
+                      key={`${r.categoryId ?? '_'}-${r.productNo ?? ''}-${r.optionValue ?? ''}-${idx}`}
+                      className="border-b align-top"
+                    >
+                      {first && (
+                        <td
+                          rowSpan={rowspan}
+                          className="border-r py-2 pr-4 font-medium break-words align-top bg-muted/20"
+                        >
+                          {r.categoryName}
+                          {r.categoryId === null && (
+                            <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-xs text-amber-800">⚠️</span>
+                          )}
+                        </td>
+                      )}
                       <td className="py-2 pr-4 break-words">{r.productName}</td>
                       <td className="py-2 pr-4 text-xs text-muted-foreground break-words">{r.optionValue ?? '-'}</td>
                       <td className="whitespace-nowrap py-2 pr-4 text-right">{fmtCount(r.qty)}개</td>
                       <td className="whitespace-nowrap py-2 pr-4 text-right">{fmtWon(r.amount)}</td>
-                      <td className="whitespace-nowrap py-2 pr-4 text-right font-medium">
-                        {first ? fmtWon(r.catTotalAmount) : ''}
-                      </td>
-                      <td className="whitespace-nowrap py-2 pr-4 text-right font-medium">
-                        {first ? fmtWon(r.catTotalAdCost) : ''}
-                      </td>
-                      <td className="whitespace-nowrap py-2 pr-4 text-center">
-                        {canDetail && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onDetailClick(r.categoryId as string, r.categoryName)}
-                          >
-                            상세보기
-                          </Button>
-                        )}
-                      </td>
+                      {first && (
+                        <td
+                          rowSpan={rowspan}
+                          className="border-l whitespace-nowrap py-2 pr-4 text-right font-medium align-top bg-muted/20"
+                        >
+                          {fmtWon(r.catTotalAmount)}
+                        </td>
+                      )}
+                      {first && (
+                        <td
+                          rowSpan={rowspan}
+                          className="whitespace-nowrap py-2 pr-4 text-right font-medium align-top bg-muted/20"
+                        >
+                          {fmtWon(r.catTotalAdCost)}
+                        </td>
+                      )}
+                      {first && (
+                        <td
+                          rowSpan={rowspan}
+                          className="whitespace-nowrap py-2 pr-4 text-center align-top bg-muted/20"
+                        >
+                          {canDetail && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => onDetailClick(r.categoryId as string, r.categoryName)}
+                            >
+                              상세보기
+                            </Button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   )
                 })}

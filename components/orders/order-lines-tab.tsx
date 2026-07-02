@@ -73,16 +73,25 @@ export function OrderLinesTab({
         )}
         {!lines.isLoading && (
           <div className="max-h-[70vh] overflow-y-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-fixed">
+              <colgroup>
+                <col className="w-24" />
+                <col className="w-28" />
+                <col className="w-32" />
+                <col style={{ width: '30%' }} />
+                <col style={{ width: '30%' }} />
+                <col className="w-16" />
+                <col className="w-28" />
+              </colgroup>
               <thead className="sticky top-0 bg-background">
                 <tr className="border-b text-left text-muted-foreground">
-                  <th className="whitespace-nowrap py-2 pr-4">주문일</th>
-                  <th className="whitespace-nowrap py-2 pr-4">주문번호</th>
-                  <th className="whitespace-nowrap py-2 pr-4">상품구분</th>
-                  <th className="whitespace-nowrap py-2 pr-4">상품명</th>
-                  <th className="whitespace-nowrap py-2 pr-4">옵션</th>
-                  <th className="whitespace-nowrap py-2 pr-4 text-right">수량</th>
-                  <th className="whitespace-nowrap py-2 pr-4 text-right">매출액</th>
+                  <th className="py-2 pr-4">주문일</th>
+                  <th className="py-2 pr-4">주문번호</th>
+                  <th className="py-2 pr-4">상품구분</th>
+                  <th className="py-2 pr-4">상품명</th>
+                  <th className="py-2 pr-4">옵션</th>
+                  <th className="py-2 pr-4 text-right">수량</th>
+                  <th className="py-2 pr-4 text-right">매출액</th>
                 </tr>
               </thead>
               <tbody>
@@ -94,17 +103,19 @@ export function OrderLinesTab({
                   </tr>
                 )}
                 {visible.map((r, i) => (
-                  <tr key={`${r.orderNo}-${r.productNo ?? ''}-${i}`} className="border-b">
+                  <tr key={`${r.orderNo}-${r.productNo ?? ''}-${i}`} className="border-b align-top">
                     <td className="whitespace-nowrap py-2 pr-4">{r.orderDate}</td>
                     <td className="whitespace-nowrap py-2 pr-4 font-mono text-xs">{r.orderNo}</td>
-                    <td className="whitespace-nowrap py-2 pr-4">
+                    <td className="py-2 pr-4 truncate">
                       {r.categoryName}
                       {r.categoryName === '미분류' && (
                         <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-xs text-amber-800">⚠️</span>
                       )}
                     </td>
-                    <td className="py-2 pr-4">{r.productName}</td>
-                    <td className="py-2 pr-4 text-xs text-muted-foreground">{r.optionValue ?? '-'}</td>
+                    <td className="py-2 pr-4 break-words">{r.productName}</td>
+                    <td className="py-2 pr-4 break-words text-xs text-muted-foreground">
+                      {r.optionValue ?? '-'}
+                    </td>
                     <td className="whitespace-nowrap py-2 pr-4 text-right">{fmt(r.qty)}개</td>
                     <td className="whitespace-nowrap py-2 pr-4 text-right">₩{fmt(Math.round(r.amount))}</td>
                   </tr>

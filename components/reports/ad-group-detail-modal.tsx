@@ -62,6 +62,7 @@ export function AdGroupDetailModal({
                   <th className="whitespace-nowrap py-2 pr-4 text-right">광고비</th>
                   <th className="whitespace-nowrap py-2 pr-4 text-right">노출</th>
                   <th className="whitespace-nowrap py-2 pr-4 text-right">클릭</th>
+                  <th className="whitespace-nowrap py-2 pr-4 text-right">CPC</th>
                   <th className="whitespace-nowrap py-2 pr-4 text-right">전환수</th>
                   <th className="whitespace-nowrap py-2 pr-4 text-right">전환매출</th>
                   <th className="whitespace-nowrap py-2 pr-4 text-right">ROAS</th>
@@ -70,18 +71,19 @@ export function AdGroupDetailModal({
               <tbody>
                 {details.isLoading && (
                   <tr>
-                    <td colSpan={8} className="py-4 text-center text-muted-foreground">불러오는 중...</td>
+                    <td colSpan={9} className="py-4 text-center text-muted-foreground">불러오는 중...</td>
                   </tr>
                 )}
                 {!details.isLoading && rows.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="py-4 text-center text-muted-foreground">
+                    <td colSpan={9} className="py-4 text-center text-muted-foreground">
                       매칭된 광고그룹이 없거나 기간 내 광고 데이터가 없습니다.
                     </td>
                   </tr>
                 )}
                 {rows.map((r) => {
                   const roas = r.cost === 0 ? 0 : (r.conversionRevenue / r.cost) * 100
+                  const cpc = r.clicks === 0 ? 0 : r.cost / r.clicks
                   return (
                     <tr key={r.adGroupId} className="border-b">
                       <td className="py-2 pr-4">{r.campaignName || '-'}</td>
@@ -89,6 +91,9 @@ export function AdGroupDetailModal({
                       <td className="whitespace-nowrap py-2 pr-4 text-right">{fmtWon(r.cost)}</td>
                       <td className="whitespace-nowrap py-2 pr-4 text-right">{fmtCount(r.impressions)}</td>
                       <td className="whitespace-nowrap py-2 pr-4 text-right">{fmtCount(r.clicks)}</td>
+                      <td className="whitespace-nowrap py-2 pr-4 text-right">
+                        {r.clicks === 0 ? '—' : fmtWon(cpc)}
+                      </td>
                       <td className="whitespace-nowrap py-2 pr-4 text-right">{fmtCount(r.conversions)}</td>
                       <td className="whitespace-nowrap py-2 pr-4 text-right">{fmtWon(r.conversionRevenue)}</td>
                       <td className="whitespace-nowrap py-2 pr-4 text-right">

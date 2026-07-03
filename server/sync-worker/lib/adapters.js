@@ -1318,10 +1318,290 @@ const naverAdAdapter = {
   },
 }
 
+const facebookAdAdapter = {
+  channel: 'facebook_ad',
+
+  async syncAdUnits(creds, ctx) {
+    const { adAccountId, accessToken } = creds
+    const brandId = ctx.brandId
+    const channelAccount = ctx.channelAccount
+    if (!adAccountId || !accessToken || !brandId || !channelAccount) {
+      return { ok: false, error: 'facebook_ad syncAdUnits: 필수 인자 누락', retryable: false }
+    }
+
+    const { createAdminClient } = require('./supabase')
+    const admin = createAdminClient()
+    const META_BASE = 'https://graph.facebook.com/v19.0'
+
+    async function fetchPaginated(pathAndQuery) {
+      const all = []
+      let next = `${META_BASE}/${pathAndQuery}`
+      while (next) {
+        const r = await httpsRequest(next, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        if (r.status === 401 || r.status === 403) {
+          throw new Error(`Meta 인증 실패 (${r.status})`)
+        }
+        if (r.status !== 200) {
+          throw new Error(`Meta API ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`)
+        }
+        const data = Array.isArray(r.data?.data) ? r.data.data : []
+        all.push(...data)
+        next = r.data?.paging?.next || null
+        if (all.length > 500000) break
+      }
+      return all
+    }
+
+    let campaigns, adsets, ads
+    try {
+      const acc = encodeURIComponent(adAccountId)
+      campaigns = await fetchPaginated(
+        `${acc}/campaigns?fields=id,name,objective,configured_status,effective_status&limit=200`
+      )
+      adsets = await fetchPaginated(
+        `${acc}/adsets?fields=id,name,campaign_id,configured_status,effective_status&limit=200`
+      )
+      ads = await fetchPaginated(
+        `${acc}/ads?fields=id,name,adset_id,configured_status,effective_status&limit=500`
+      )
+    } catch (e) {
+      return { ok: false, error: `Meta ad_units 조회 실패: ${e.message}`, retryable: true }
+    }
+
+    // campaigns 저장 (level=campaign)
+    const campaignRows = campaigns.map((c) => ({
+      brand_id: brandId,
+      channel: 'facebook_ad',
+      channel_account: channelAccount,
+      level: 'campaign',
+      external_id: String(c.id),
+      external_name: String(c.name || c.id),
+      parent_id: null,
+      metadata: {
+        type: c.objective || 'FACEBOOK',
+        configured_status: c.configured_status,
+        effective_status: c.effective_status,
+      },
+      updated_at: new Date().toISOString(),
+    }))
+
+    let campaignCount = 0
+    if (campaignRows.length > 0) {
+      const { error: err, count } = await admin
+        .from('ad_units')
+        .upsert(campaignRows, {
+          onConflict: 'brand_id,channel,external_id,level',
+          count: 'exact',
+        })
+      if (err) return { ok: false, error: `campaigns upsert 실패: ${err.message}`, retryable: true }
+      campaignCount = count ?? campaignRows.length
+    }
+
+    // 저장된 campaigns의 external_id → ad_units.id 매핑
+    const { data: savedCampaigns } = await admin
+      .from('ad_units')
+      .select('id, external_id')
+      .eq('brand_id', brandId)
+      .eq('channel', 'facebook_ad')
+      .eq('level', 'campaign')
+    const campaignIdMap = new Map((savedCampaigns ?? []).map((r) => [r.external_id, r.id]))
+
+    // adsets metadata 준비 (id → { id, name, campaign_id })
+    const adsetMap = new Map(
+      adsets.map((s) => [
+        String(s.id),
+        { id: String(s.id), name: String(s.name || s.id), campaign_id: String(s.campaign_id || '') },
+      ])
+    )
+
+    // ads 저장 (level=keyword). metadata에 ad_group_id/name(=adset) 삽입
+    const adRows = ads.map((a) => {
+      const adsetId = String(a.adset_id || '')
+      const adset = adsetMap.get(adsetId)
+      const parentCampaignId = adset ? campaignIdMap.get(String(adsetMap.get(adsetId)?.campaign_id)) : null
+      return {
+        brand_id: brandId,
+        channel: 'facebook_ad',
+        channel_account: channelAccount,
+        level: 'keyword',
+        external_id: String(a.id),
+        external_name: String(a.name || a.id),
+        parent_id: parentCampaignId ?? null,
+        metadata: {
+          ad_group_id: adsetId,
+          ad_group_name: adset ? adset.name : '',
+          configured_status: a.configured_status,
+          effective_status: a.effective_status,
+        },
+        updated_at: new Date().toISOString(),
+      }
+    })
+
+    let keywordCount = 0
+    if (adRows.length > 0) {
+      const CHUNK = 500
+      for (let i = 0; i < adRows.length; i += CHUNK) {
+        const batch = adRows.slice(i, i + CHUNK)
+        const { error: err, count } = await admin
+          .from('ad_units')
+          .upsert(batch, {
+            onConflict: 'brand_id,channel,external_id,level',
+            count: 'exact',
+          })
+        if (err) return { ok: false, error: `ads upsert 실패: ${err.message}`, retryable: true }
+        keywordCount += count ?? batch.length
+      }
+    }
+
+    return {
+      ok: true,
+      rowsUpserted: campaignCount + keywordCount,
+      meta: {
+        campaign_count: campaignCount,
+        keyword_count: keywordCount,
+        warnings_count: 0,
+      },
+    }
+  },
+
+  async syncAdStats(creds, ctx) {
+    const { adAccountId, accessToken } = creds
+    const brandId = ctx.brandId
+    const channelAccount = ctx.channelAccount
+    if (!adAccountId || !accessToken || !brandId || !channelAccount) {
+      return { ok: false, error: 'facebook_ad syncAdStats: 필수 인자 누락', retryable: false }
+    }
+
+    const endDate = ctx.dateRangeEnd || yesterdayKST()
+    const startDate =
+      ctx.dateRangeStart ||
+      (() => {
+        const d = new Date(new Date(endDate).getTime() - 6 * 86400000)
+        return d.toISOString().slice(0, 10)
+      })()
+
+    const { createAdminClient } = require('./supabase')
+    const admin = createAdminClient()
+    const META_BASE = 'https://graph.facebook.com/v19.0'
+
+    // ad_id → ad_unit_id 매핑
+    const { data: existingAds } = await admin
+      .from('ad_units')
+      .select('id, external_id')
+      .eq('brand_id', brandId)
+      .eq('channel', 'facebook_ad')
+      .eq('level', 'keyword')
+    const adIdMap = new Map((existingAds ?? []).map((r) => [r.external_id, r.id]))
+
+    if (adIdMap.size === 0) {
+      return { ok: true, rowsUpserted: 0, meta: { warning: 'ad_units 없음, syncAdUnits 먼저 실행 필요' } }
+    }
+
+    const acc = encodeURIComponent(adAccountId)
+    const timeRange = encodeURIComponent(JSON.stringify({ since: startDate, until: endDate }))
+    const fields = 'ad_id,spend,impressions,clicks,actions,action_values,date_start'
+    const initialUrl = `${META_BASE}/${acc}/insights?level=ad&time_range=${timeRange}&time_increment=1&fields=${fields}&limit=500`
+
+    const insightRows = []
+    let next = initialUrl
+    let warnings = 0
+    try {
+      while (next) {
+        const r = await httpsRequest(next, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        if (r.status === 401 || r.status === 403) {
+          return { ok: false, error: `Meta 인증 실패 (${r.status})`, retryable: true }
+        }
+        if (r.status !== 200) {
+          return {
+            ok: false,
+            error: `Meta insights API ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`,
+            retryable: true,
+          }
+        }
+        const items = Array.isArray(r.data?.data) ? r.data.data : []
+        insightRows.push(...items)
+        next = r.data?.paging?.next || null
+        if (insightRows.length > 200000) break
+      }
+    } catch (e) {
+      return { ok: false, error: `insights 호출 실패: ${e.message}`, retryable: true }
+    }
+
+    const rows = []
+    for (const it of insightRows) {
+      const adId = String(it.ad_id || '')
+      const adUnitId = adIdMap.get(adId)
+      if (!adUnitId) {
+        warnings++
+        continue
+      }
+      // conversions: purchase 액션 수 합
+      let conversions = 0
+      let conversionRevenue = 0
+      if (Array.isArray(it.actions)) {
+        for (const a of it.actions) {
+          if (String(a.action_type || '').includes('purchase')) {
+            conversions += Number(a.value || 0)
+          }
+        }
+      }
+      if (Array.isArray(it.action_values)) {
+        for (const a of it.action_values) {
+          if (String(a.action_type || '').includes('purchase')) {
+            conversionRevenue += Number(a.value || 0)
+          }
+        }
+      }
+      rows.push({
+        brand_id: brandId,
+        ad_unit_id: adUnitId,
+        date: it.date_start,
+        cost: Number(it.spend || 0),
+        impressions: Number(it.impressions || 0),
+        clicks: Number(it.clicks || 0),
+        conversions,
+        conversion_revenue: conversionRevenue,
+      })
+    }
+
+    let upserted = 0
+    if (rows.length > 0) {
+      const CHUNK = 1000
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        const batch = rows.slice(i, i + CHUNK)
+        const { error, count } = await admin
+          .from('ad_stats')
+          .upsert(batch, { onConflict: 'brand_id,ad_unit_id,date', count: 'exact' })
+        if (error) {
+          return { ok: false, error: `ad_stats upsert 실패: ${error.message}`, retryable: true }
+        }
+        upserted += count ?? batch.length
+      }
+    }
+
+    return {
+      ok: true,
+      rowsUpserted: upserted,
+      meta: {
+        days: insightRows.length ? Math.max(1, new Set(insightRows.map((r) => r.date_start)).size) : 0,
+        ad_stats_upserted: upserted,
+        warnings_count: warnings,
+      },
+    }
+  },
+}
+
 const adapters = {
   cafe24: cafe24Adapter,
   smartstore: smartstoreAdapter,
   naver_ad: naverAdAdapter,
+  facebook_ad: facebookAdAdapter,
 }
 
 function getAdapter(channel) {

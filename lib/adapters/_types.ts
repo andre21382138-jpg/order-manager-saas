@@ -1,6 +1,6 @@
 import 'server-only'
 
-export type Channel = 'cafe24' | 'smartstore' | 'naver_ad'
+export type Channel = 'cafe24' | 'smartstore' | 'naver_ad' | 'facebook_ad'
 export type AuthType = 'oauth' | 'api_key'
 
 export interface CredentialPayload {

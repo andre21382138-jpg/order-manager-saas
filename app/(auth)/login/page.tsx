@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,7 +8,6 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function LoginPage() {
-  const router = useRouter()
   const supabase = createBrowserClient()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -21,15 +19,32 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
-    setLoading(false)
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password })
 
-    if (signInError) {
-      setError(signInError.message)
+    if (signInError || !signInData.user) {
+      setLoading(false)
+      setError(signInError?.message ?? '로그인 실패')
       return
     }
-    router.push('/')
-    router.refresh()
+
+    // 로그인 성공 후 접근 가능한 첫 브랜드 조회 → 해당 브랜드 홈으로 이동
+    const userId = signInData.user.id
+    const [ownedRes, memberRes] = await Promise.all([
+      supabase.from('brands').select('id').eq('owner_id', userId).limit(1),
+      supabase.from('brand_users').select('brand_id').eq('user_id', userId).limit(1),
+    ])
+    const firstBrandId =
+      ownedRes.data?.[0]?.id ??
+      memberRes.data?.[0]?.brand_id ??
+      null
+
+    setLoading(false)
+
+    if (firstBrandId) {
+      window.location.href = `/brands/${firstBrandId}`
+    } else {
+      window.location.href = '/brands'
+    }
   }
 
   return (

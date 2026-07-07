@@ -71,7 +71,7 @@ async function validate(creds: CredentialPayload): Promise<ValidateResult> {
         'login-customer-id': loginCustomerId,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ query: 'SELECT customer.id, customer.descriptive_name FROM customer LIMIT 1' }),
+      body: JSON.stringify({ query: 'SELECT customer.id FROM customer' }),
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'network error'
@@ -95,7 +95,7 @@ async function validate(creds: CredentialPayload): Promise<ValidateResult> {
   }
   if (!adsRes.ok) {
     const txt = await adsRes.text().catch(() => '')
-    return { ok: false, error: `Google Ads API 오류 (${adsRes.status}): ${txt.slice(0, 300)}` }
+    return { ok: false, error: `Google Ads API 오류 (${adsRes.status}): ${txt.slice(0, 800)}` }
   }
 
   return { ok: true }

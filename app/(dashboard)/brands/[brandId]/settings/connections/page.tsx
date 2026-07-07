@@ -127,43 +127,52 @@ export default async function ConnectionsPage({
         </Card>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <ChannelCard
-          title="카페24"
-          channelKey="cafe24"
-          brandId={brand.id}
-          credentials={credsByChannel['cafe24'] ?? []}
-          available
-        />
-        <ChannelCard
-          title="스마트스토어"
-          channelKey="smartstore"
-          brandId={brand.id}
-          credentials={credsByChannel['smartstore'] ?? []}
-          available
-        />
-        <ChannelCard
-          title="네이버광고"
-          channelKey="naver_ad"
-          brandId={brand.id}
-          credentials={credsByChannel['naver_ad'] ?? []}
-          available
-        />
-        <ChannelCard
-          title="페이스북광고"
-          channelKey="facebook_ad"
-          brandId={brand.id}
-          credentials={credsByChannel['facebook_ad'] ?? []}
-          available
-        />
-        <ChannelCard
-          title="구글애즈"
-          channelKey="google_ads"
-          brandId={brand.id}
-          credentials={credsByChannel['google_ads'] ?? []}
-          available
-        />
-      </div>
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">🛒 쇼핑몰</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ChannelCard
+            title="카페24"
+            channelKey="cafe24"
+            brandId={brand.id}
+            credentials={credsByChannel['cafe24'] ?? []}
+            available
+          />
+          <ChannelCard
+            title="스마트스토어"
+            channelKey="smartstore"
+            brandId={brand.id}
+            credentials={credsByChannel['smartstore'] ?? []}
+            available
+          />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">📣 광고</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ChannelCard
+            title="네이버광고"
+            channelKey="naver_ad"
+            brandId={brand.id}
+            credentials={credsByChannel['naver_ad'] ?? []}
+            available
+          />
+          <ChannelCard
+            title="페이스북광고"
+            channelKey="facebook_ad"
+            brandId={brand.id}
+            credentials={credsByChannel['facebook_ad'] ?? []}
+            available
+          />
+          <ChannelCard
+            title="구글애즈"
+            channelKey="google_ads"
+            brandId={brand.id}
+            credentials={credsByChannel['google_ads'] ?? []}
+            available
+          />
+        </div>
+      </section>
     </div>
   )
 }

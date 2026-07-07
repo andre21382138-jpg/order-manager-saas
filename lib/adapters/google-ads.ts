@@ -60,7 +60,7 @@ async function validate(creds: CredentialPayload): Promise<ValidateResult> {
   }
 
   // 2) Google Ads API로 간단한 customer 조회 (검증)
-  const url = `https://googleads.googleapis.com/v17/customers/${customerId}/googleAds:search`
+  const url = `https://googleads.googleapis.com/v20/customers/${customerId}/googleAds:search`
   let adsRes: Response
   try {
     adsRes = await fetch(url, {

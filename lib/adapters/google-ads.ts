@@ -82,16 +82,9 @@ async function validate(creds: CredentialPayload): Promise<ValidateResult> {
     return { ok: false, error: '액세스 토큰이 유효하지 않습니다' }
   }
   if (adsRes.status === 403) {
-    const txt = await adsRes.text().catch(() => '')
-    // Developer Token 미승인은 등록 허용 (승인 후 자동으로 sync 성공)
-    if (
-      txt.includes('DEVELOPER_TOKEN_NOT_APPROVED') ||
-      txt.includes('developer token is not approved') ||
-      txt.includes('TEST_ACCOUNTS_ONLY')
-    ) {
-      return { ok: true }
-    }
-    return { ok: false, error: `Google Ads 권한 오류 (${adsRes.status}): ${txt.slice(0, 300)}` }
+    // 403 PERMISSION_DENIED — Test Access이거나 Basic Access 미승인 상태.
+    // OAuth 자체는 통과했으므로 등록 허용 (승인 후 sync가 자동으로 성공)
+    return { ok: true }
   }
   if (!adsRes.ok) {
     const txt = await adsRes.text().catch(() => '')

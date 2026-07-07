@@ -1639,7 +1639,7 @@ async function googleAdsSearch(customerId, loginCustomerId, developerToken, acce
       ? JSON.stringify({ query, pageToken })
       : JSON.stringify({ query })
     const r = await httpsRequest(
-      `https://googleads.googleapis.com/v20/customers/${customerId}/googleAds:search`,
+      `https://googleads.googleapis.com/v21/customers/${customerId}/googleAds:search`,
       {
         method: 'POST',
         headers: {

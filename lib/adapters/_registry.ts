@@ -4,12 +4,14 @@ import { cafe24Adapter } from './cafe24'
 import { smartstoreAdapter } from './smartstore'
 import { naverAdAdapter } from './naver-ad'
 import { facebookAdAdapter } from './facebook-ad'
+import { googleAdsAdapter } from './google-ads'
 
 const adapters: Record<string, ChannelAdapter> = {
   cafe24: cafe24Adapter,
   smartstore: smartstoreAdapter,
   naver_ad: naverAdAdapter,
   facebook_ad: facebookAdAdapter,
+  google_ads: googleAdsAdapter,
 }
 
 export function getAdapter(channel: string): ChannelAdapter | undefined {

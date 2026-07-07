@@ -1598,11 +1598,329 @@ const facebookAdAdapter = {
   },
 }
 
+// 구글애즈 토큰 캐시 (clientId+refreshToken 조합 → { accessToken, expiresAt })
+const googleAdsTokenCache = new Map()
+
+async function getGoogleAdsAccessToken(clientId, clientSecret, refreshToken) {
+  const key = `${clientId}:${refreshToken}`
+  const cached = googleAdsTokenCache.get(key)
+  const now = Date.now()
+  if (cached && cached.expiresAt > now + 60_000) {
+    return cached.accessToken
+  }
+
+  const body = `client_id=${encodeURIComponent(clientId)}` +
+    `&client_secret=${encodeURIComponent(clientSecret)}` +
+    `&refresh_token=${encodeURIComponent(refreshToken)}` +
+    `&grant_type=refresh_token`
+
+  const r = await httpsRequest(
+    'https://oauth2.googleapis.com/token',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    },
+    body
+  )
+  if (r.status !== 200 || !r.data?.access_token) {
+    throw new Error(`구글 OAuth 토큰 발급 실패 (${r.status}): ${JSON.stringify(r.data).slice(0, 200)}`)
+  }
+  const expiresIn = Number(r.data.expires_in || 3600) * 1000
+  const accessToken = r.data.access_token
+  googleAdsTokenCache.set(key, { accessToken, expiresAt: now + expiresIn })
+  return accessToken
+}
+
+async function googleAdsSearch(customerId, loginCustomerId, developerToken, accessToken, query) {
+  const all = []
+  let pageToken = null
+  while (true) {
+    const body = pageToken
+      ? JSON.stringify({ query, pageToken })
+      : JSON.stringify({ query })
+    const r = await httpsRequest(
+      `https://googleads.googleapis.com/v17/customers/${customerId}/googleAds:search`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'developer-token': developerToken,
+          'login-customer-id': loginCustomerId,
+          'Content-Type': 'application/json',
+        },
+      },
+      body
+    )
+    if (r.status === 401) throw new Error('access_token 만료 또는 무효')
+    if (r.status === 403) {
+      throw new Error(`권한 오류 (403): ${JSON.stringify(r.data).slice(0, 200)}`)
+    }
+    if (r.status !== 200) {
+      throw new Error(`Google Ads API ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`)
+    }
+    const results = Array.isArray(r.data?.results) ? r.data.results : []
+    all.push(...results)
+    pageToken = r.data?.nextPageToken || null
+    if (!pageToken) break
+    if (all.length > 500000) break
+  }
+  return all
+}
+
+const googleAdsAdapter = {
+  channel: 'google_ads',
+
+  async syncAdUnits(creds, ctx) {
+    const { customerId, loginCustomerId, developerToken, clientId, clientSecret, refreshToken } = creds
+    const brandId = ctx.brandId
+    const channelAccount = ctx.channelAccount
+    if (!customerId || !loginCustomerId || !developerToken || !clientId || !clientSecret || !refreshToken || !brandId || !channelAccount) {
+      return { ok: false, error: 'google_ads syncAdUnits: 필수 인자 누락', retryable: false }
+    }
+
+    const { createAdminClient } = require('./supabase')
+    const admin = createAdminClient()
+
+    let accessToken
+    try {
+      accessToken = await getGoogleAdsAccessToken(clientId, clientSecret, refreshToken)
+    } catch (e) {
+      return { ok: false, error: e.message, retryable: true }
+    }
+
+    // 1) campaigns
+    let campaignRows, adGroupRows, adRows
+    try {
+      campaignRows = await googleAdsSearch(
+        customerId, loginCustomerId, developerToken, accessToken,
+        `SELECT campaign.id, campaign.name, campaign.advertising_channel_type, campaign.status
+         FROM campaign
+         WHERE campaign.status IN ('ENABLED', 'PAUSED')`
+      )
+      adGroupRows = await googleAdsSearch(
+        customerId, loginCustomerId, developerToken, accessToken,
+        `SELECT ad_group.id, ad_group.name, ad_group.status,
+                campaign.id
+         FROM ad_group
+         WHERE ad_group.status IN ('ENABLED', 'PAUSED')`
+      )
+      adRows = await googleAdsSearch(
+        customerId, loginCustomerId, developerToken, accessToken,
+        `SELECT ad_group_ad.ad.id, ad_group_ad.ad.name, ad_group_ad.status,
+                ad_group.id, ad_group.name,
+                campaign.id
+         FROM ad_group_ad
+         WHERE ad_group_ad.status IN ('ENABLED', 'PAUSED')`
+      )
+    } catch (e) {
+      return { ok: false, error: `Google Ads 조회 실패: ${e.message}`, retryable: true }
+    }
+
+    // campaigns upsert
+    const campaigns = campaignRows.map((r) => ({
+      brand_id: brandId,
+      channel: 'google_ads',
+      channel_account: channelAccount,
+      level: 'campaign',
+      external_id: String(r.campaign?.id ?? ''),
+      external_name: String(r.campaign?.name ?? r.campaign?.id ?? ''),
+      parent_id: null,
+      metadata: {
+        type: r.campaign?.advertisingChannelType || 'GOOGLE',
+        status: r.campaign?.status,
+      },
+      updated_at: new Date().toISOString(),
+    }))
+
+    let campaignCount = 0
+    if (campaigns.length > 0) {
+      const { error, count } = await admin
+        .from('ad_units')
+        .upsert(campaigns, { onConflict: 'brand_id,channel,external_id,level', count: 'exact' })
+      if (error) return { ok: false, error: `campaigns upsert 실패: ${error.message}`, retryable: true }
+      campaignCount = count ?? campaigns.length
+    }
+
+    // campaigns external_id → ad_units.id
+    const { data: savedCampaigns } = await admin
+      .from('ad_units')
+      .select('id, external_id')
+      .eq('brand_id', brandId)
+      .eq('channel', 'google_ads')
+      .eq('level', 'campaign')
+    const campaignIdMap = new Map((savedCampaigns ?? []).map((r) => [r.external_id, r.id]))
+
+    // ad_groups: id → { name, campaign_id }
+    const adGroupMap = new Map()
+    for (const r of adGroupRows) {
+      const agId = String(r.adGroup?.id ?? '')
+      if (!agId) continue
+      adGroupMap.set(agId, {
+        id: agId,
+        name: String(r.adGroup?.name ?? agId),
+        campaign_id: String(r.campaign?.id ?? ''),
+      })
+    }
+
+    // ads upsert (level='keyword', metadata에 ad_group 정보)
+    const ads = adRows.map((r) => {
+      const adId = String(r.adGroupAd?.ad?.id ?? '')
+      const agId = String(r.adGroup?.id ?? '')
+      const ag = adGroupMap.get(agId)
+      const campaignExtId = String(r.campaign?.id ?? '')
+      const parentId = campaignIdMap.get(campaignExtId) ?? null
+      return {
+        brand_id: brandId,
+        channel: 'google_ads',
+        channel_account: channelAccount,
+        level: 'keyword',
+        external_id: adId,
+        external_name: String(r.adGroupAd?.ad?.name || adId),
+        parent_id: parentId,
+        metadata: {
+          ad_group_id: agId,
+          ad_group_name: ag ? ag.name : String(r.adGroup?.name ?? ''),
+          status: r.adGroupAd?.status,
+        },
+        updated_at: new Date().toISOString(),
+      }
+    }).filter((a) => a.external_id)
+
+    let keywordCount = 0
+    if (ads.length > 0) {
+      const CHUNK = 500
+      for (let i = 0; i < ads.length; i += CHUNK) {
+        const batch = ads.slice(i, i + CHUNK)
+        const { error, count } = await admin
+          .from('ad_units')
+          .upsert(batch, { onConflict: 'brand_id,channel,external_id,level', count: 'exact' })
+        if (error) return { ok: false, error: `ads upsert 실패: ${error.message}`, retryable: true }
+        keywordCount += count ?? batch.length
+      }
+    }
+
+    return {
+      ok: true,
+      rowsUpserted: campaignCount + keywordCount,
+      meta: {
+        campaign_count: campaignCount,
+        keyword_count: keywordCount,
+        warnings_count: 0,
+      },
+    }
+  },
+
+  async syncAdStats(creds, ctx) {
+    const { customerId, loginCustomerId, developerToken, clientId, clientSecret, refreshToken } = creds
+    const brandId = ctx.brandId
+    const channelAccount = ctx.channelAccount
+    if (!customerId || !loginCustomerId || !developerToken || !clientId || !clientSecret || !refreshToken || !brandId || !channelAccount) {
+      return { ok: false, error: 'google_ads syncAdStats: 필수 인자 누락', retryable: false }
+    }
+
+    const endDate = ctx.dateRangeEnd || yesterdayKST()
+    const startDate =
+      ctx.dateRangeStart ||
+      (() => {
+        const d = new Date(new Date(endDate).getTime() - 6 * 86400000)
+        return d.toISOString().slice(0, 10)
+      })()
+
+    const { createAdminClient } = require('./supabase')
+    const admin = createAdminClient()
+
+    let accessToken
+    try {
+      accessToken = await getGoogleAdsAccessToken(clientId, clientSecret, refreshToken)
+    } catch (e) {
+      return { ok: false, error: e.message, retryable: true }
+    }
+
+    // ad external_id → ad_unit_id 매핑
+    const { data: existingAds } = await admin
+      .from('ad_units')
+      .select('id, external_id')
+      .eq('brand_id', brandId)
+      .eq('channel', 'google_ads')
+      .eq('level', 'keyword')
+    const adIdMap = new Map((existingAds ?? []).map((r) => [r.external_id, r.id]))
+
+    if (adIdMap.size === 0) {
+      return {
+        ok: true,
+        rowsUpserted: 0,
+        meta: { warning: 'ad_units 없음, syncAdUnits 먼저 실행 필요' },
+      }
+    }
+
+    // insights (per ad per day)
+    let insights
+    try {
+      insights = await googleAdsSearch(
+        customerId, loginCustomerId, developerToken, accessToken,
+        `SELECT ad_group_ad.ad.id, segments.date,
+                metrics.cost_micros, metrics.impressions, metrics.clicks,
+                metrics.conversions, metrics.conversions_value
+         FROM ad_group_ad
+         WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'`
+      )
+    } catch (e) {
+      return { ok: false, error: `Google Ads insights 조회 실패: ${e.message}`, retryable: true }
+    }
+
+    const rows = []
+    let warnings = 0
+    for (const it of insights) {
+      const adId = String(it.adGroupAd?.ad?.id ?? '')
+      const adUnitId = adIdMap.get(adId)
+      if (!adUnitId) {
+        warnings++
+        continue
+      }
+      const costMicros = Number(it.metrics?.costMicros ?? 0)
+      rows.push({
+        brand_id: brandId,
+        ad_unit_id: adUnitId,
+        date: it.segments?.date,
+        cost: Math.round(costMicros / 1_000_000),
+        impressions: Number(it.metrics?.impressions ?? 0),
+        clicks: Number(it.metrics?.clicks ?? 0),
+        conversions: Math.round(Number(it.metrics?.conversions ?? 0)),
+        conversion_revenue: Number(it.metrics?.conversionsValue ?? 0),
+      })
+    }
+
+    let upserted = 0
+    if (rows.length > 0) {
+      const CHUNK = 1000
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        const batch = rows.slice(i, i + CHUNK)
+        const { error, count } = await admin
+          .from('ad_stats')
+          .upsert(batch, { onConflict: 'brand_id,ad_unit_id,date', count: 'exact' })
+        if (error) return { ok: false, error: `ad_stats upsert 실패: ${error.message}`, retryable: true }
+        upserted += count ?? batch.length
+      }
+    }
+
+    return {
+      ok: true,
+      rowsUpserted: upserted,
+      meta: {
+        days: new Set(insights.map((i) => i.segments?.date).filter(Boolean)).size,
+        ad_stats_upserted: upserted,
+        warnings_count: warnings,
+      },
+    }
+  },
+}
+
 const adapters = {
   cafe24: cafe24Adapter,
   smartstore: smartstoreAdapter,
   naver_ad: naverAdAdapter,
   facebook_ad: facebookAdAdapter,
+  google_ads: googleAdsAdapter,
 }
 
 function getAdapter(channel) {

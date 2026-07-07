@@ -162,7 +162,8 @@ const cafe24Adapter = {
   async syncProducts(creds, ctx) {
     const { mallId, accessToken } = creds
     const brandId = ctx.brandId
-    if (!mallId || !accessToken || !brandId) {
+    const channelAccount = ctx.channelAccount
+    if (!mallId || !accessToken || !brandId || !channelAccount) {
       return { ok: false, error: 'syncProducts: 필수 인자 누락', retryable: false }
     }
 

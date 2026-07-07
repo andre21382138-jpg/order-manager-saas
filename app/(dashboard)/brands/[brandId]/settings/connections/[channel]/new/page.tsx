@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 const CHANNEL_TITLES: Record<string, string> = {
   smartstore: '스마트스토어',
   naver_ad: '네이버광고',
+  facebook_ad: '페이스북광고',
+  google_ads: '구글애즈',
 }
 
 const CHANNEL_GUIDES: Record<string, { lines: string[]; link?: { href: string; label: string } }> = {
@@ -27,6 +29,24 @@ const CHANNEL_GUIDES: Record<string, { lines: string[]; link?: { href: string; l
       '서명 방식 인증이라 IP 등록 불필요',
     ],
     link: { href: 'https://searchad.naver.com/customers/api', label: '네이버광고 API 관리' },
+  },
+  facebook_ad: {
+    lines: [
+      'Meta 비즈니스 관리자(business.facebook.com) → 비즈니스 설정 → 시스템 사용자',
+      '시스템 사용자 생성 후 광고 계정 관리 권한 부여',
+      '새 토큰 생성 (권한: ads_read, ads_management, business_management, 만료 없음)',
+      '광고 계정 ID: Meta 광고 관리자 URL의 act_XXXXXXXXX',
+    ],
+    link: { href: 'https://business.facebook.com/settings/system-users', label: 'Meta 시스템 사용자 관리' },
+  },
+  google_ads: {
+    lines: [
+      'MCC (관리자) 계정 → API 센터 → Developer Token 발급 + Basic Access 신청',
+      'Google Cloud Console → OAuth 2.0 Client ID/Secret 발급 + Google Ads API 사용 설정',
+      'OAuth Playground(developers.google.com/oauthplayground)에서 Refresh Token 발급',
+      'Customer ID = 아프리모 광고 계정, MCC ID = 관리자 계정 (하이픈 자동 제거)',
+    ],
+    link: { href: 'https://ads.google.com/', label: 'Google Ads' },
   },
 }
 

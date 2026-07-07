@@ -149,6 +149,20 @@ export default async function ConnectionsPage({
           credentials={credsByChannel['naver_ad'] ?? []}
           available
         />
+        <ChannelCard
+          title="페이스북광고"
+          channelKey="facebook_ad"
+          brandId={brand.id}
+          credentials={credsByChannel['facebook_ad'] ?? []}
+          available
+        />
+        <ChannelCard
+          title="구글애즈"
+          channelKey="google_ads"
+          brandId={brand.id}
+          credentials={credsByChannel['google_ads'] ?? []}
+          available
+        />
       </div>
     </div>
   )

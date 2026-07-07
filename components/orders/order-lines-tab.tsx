@@ -28,6 +28,16 @@ export function OrderLinesTab({
     () => getOrderLines(supabase, brandId, mall, range)
   )
 
+  // 이 브랜드에 상품구분(카테고리)이 정의돼 있는지 확인 (없으면 상품구분 컬럼 숨김)
+  const categoriesCount = useSWR(['product-categories-count', brandId], async () => {
+    const { count } = await supabase
+      .from('product_categories')
+      .select('*', { count: 'exact', head: true })
+      .eq('brand_id', brandId)
+    return count ?? 0
+  })
+  const hasCategories = (categoriesCount.data ?? 0) > 0
+
   const rows = lines.data ?? []
 
   const filtered = useMemo(() => {
@@ -35,12 +45,12 @@ export function OrderLinesTab({
     if (!q) return rows
     return rows.filter(
       (r) =>
-        r.categoryName.toLowerCase().includes(q) ||
+        (hasCategories && r.categoryName.toLowerCase().includes(q)) ||
         r.productName.toLowerCase().includes(q) ||
         (r.optionValue?.toLowerCase() ?? '').includes(q) ||
         r.orderNo.toLowerCase().includes(q)
     )
-  }, [rows, query])
+  }, [rows, query, hasCategories])
 
   const visible = filtered.slice(0, ROW_LIMIT)
   const totalAmount = filtered.reduce((s, r) => s + r.amount, 0)
@@ -55,7 +65,7 @@ export function OrderLinesTab({
           </CardTitle>
           <input
             type="search"
-            placeholder="상품구분 / 상품명 / 옵션 / 주문번호 검색"
+            placeholder={hasCategories ? '상품구분 / 상품명 / 옵션 / 주문번호 검색' : '상품명 / 옵션 / 주문번호 검색'}
             className="rounded-md border border-input bg-background px-3 py-1 text-sm w-80"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -77,9 +87,9 @@ export function OrderLinesTab({
               <colgroup>
                 <col className="w-24" />
                 <col className="w-44" />
-                <col className="w-32" />
-                <col style={{ width: '30%' }} />
-                <col style={{ width: '30%' }} />
+                {hasCategories && <col className="w-32" />}
+                <col style={{ width: hasCategories ? '30%' : '45%' }} />
+                <col style={{ width: hasCategories ? '30%' : '35%' }} />
                 <col className="w-16" />
                 <col className="w-28" />
               </colgroup>
@@ -87,7 +97,7 @@ export function OrderLinesTab({
                 <tr className="border-b text-left text-muted-foreground">
                   <th className="py-2 pr-4">주문일</th>
                   <th className="py-2 pr-4">주문번호</th>
-                  <th className="py-2 pr-4">상품구분</th>
+                  {hasCategories && <th className="py-2 pr-4">상품구분</th>}
                   <th className="py-2 pr-4">상품명</th>
                   <th className="py-2 pr-4">옵션</th>
                   <th className="py-2 pr-4 text-right">수량</th>
@@ -97,7 +107,7 @@ export function OrderLinesTab({
               <tbody>
                 {visible.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-4 text-center text-muted-foreground">
+                    <td colSpan={hasCategories ? 7 : 6} className="py-4 text-center text-muted-foreground">
                       데이터 없음
                     </td>
                   </tr>
@@ -106,12 +116,14 @@ export function OrderLinesTab({
                   <tr key={`${r.orderNo}-${r.productNo ?? ''}-${i}`} className="border-b align-top">
                     <td className="whitespace-nowrap py-2 pr-4">{r.orderDate}</td>
                     <td className="py-2 pr-4 font-mono text-xs break-all">{r.orderNo}</td>
-                    <td className="py-2 pr-4 break-words">
-                      {r.categoryName}
-                      {r.categoryName === '미분류' && (
-                        <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-xs text-amber-800">⚠️</span>
-                      )}
-                    </td>
+                    {hasCategories && (
+                      <td className="py-2 pr-4 break-words">
+                        {r.categoryName}
+                        {r.categoryName === '미분류' && (
+                          <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-xs text-amber-800">⚠️</span>
+                        )}
+                      </td>
+                    )}
                     <td className="py-2 pr-4 break-words">{r.productName}</td>
                     <td className="py-2 pr-4 break-words text-xs text-muted-foreground">
                       {r.optionValue ?? '-'}

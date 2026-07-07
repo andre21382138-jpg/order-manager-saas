@@ -83,11 +83,13 @@ async function validate(creds: CredentialPayload): Promise<ValidateResult> {
   }
   if (adsRes.status === 403) {
     const txt = await adsRes.text().catch(() => '')
-    if (txt.includes('DEVELOPER_TOKEN_NOT_APPROVED') || txt.includes('developer token is not approved')) {
-      return {
-        ok: false,
-        error: 'Developer Token이 아직 Basic Access 승인 전입니다. Google 심사 완료 후 재시도해주세요.',
-      }
+    // Developer Token 미승인은 등록 허용 (승인 후 자동으로 sync 성공)
+    if (
+      txt.includes('DEVELOPER_TOKEN_NOT_APPROVED') ||
+      txt.includes('developer token is not approved') ||
+      txt.includes('TEST_ACCOUNTS_ONLY')
+    ) {
+      return { ok: true }
     }
     return { ok: false, error: `Google Ads 권한 오류 (${adsRes.status}): ${txt.slice(0, 300)}` }
   }

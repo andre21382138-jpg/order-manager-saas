@@ -322,6 +322,7 @@ const cafe24Adapter = {
           is_new: isNew,
           naver_amount: naverPoint,
           member_id: memberId,
+          order_status: o.order_status ?? null,
         }
       })
 

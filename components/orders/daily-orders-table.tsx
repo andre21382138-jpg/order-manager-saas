@@ -36,7 +36,7 @@ export function DailyOrdersTable({
                 <th className="py-2 pr-4">날짜</th>
                 <th className="py-2 pr-4 text-right">매출</th>
                 <th className="py-2 pr-4 text-right">주문 건수</th>
-                {hasVisitors && <th className="py-2 pr-4 text-right">방문자수</th>}
+                {hasVisitors && <th className="py-2 pr-4 text-right">순방문자수</th>}
                 {hasVisitors && <th className="py-2 pr-4 text-right">구매 전환률</th>}
                 <th className="py-2 pr-4 text-right">객단가</th>
               </tr>

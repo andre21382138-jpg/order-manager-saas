@@ -25,15 +25,18 @@ export function BrandSwitcher({
   const router = useRouter()
   const pathname = usePathname()
 
-  const current = brands.find((b) => b.id === currentBrandId)
+  // 상위 서버 컴포넌트에서 currentBrandId를 못 넘겨줄 때 URL에서 추출 (/brands/{id}/...)
+  const pathBrandId = pathname.match(/^\/brands\/([^/]+)/)?.[1] ?? null
+  const effectiveBrandId = currentBrandId ?? pathBrandId
+  const current = brands.find((b) => b.id === effectiveBrandId)
 
   function switchTo(brandId: string) {
-    if (!currentBrandId) {
+    if (!effectiveBrandId) {
       router.push(`/brands/${brandId}`)
       return
     }
-    // /brands/{currentBrandId}/... → /brands/{brandId}/...
-    const next = pathname.replace(`/brands/${currentBrandId}`, `/brands/${brandId}`)
+    // /brands/{effective}/... → /brands/{brandId}/...
+    const next = pathname.replace(`/brands/${effectiveBrandId}`, `/brands/${brandId}`)
     router.push(next)
   }
 
@@ -61,7 +64,7 @@ export function BrandSwitcher({
               style={{ backgroundColor: b.color ?? '#94a3b8' }}
             />
             <span className="flex-1">{b.name}</span>
-            {b.id === currentBrandId && <span>✓</span>}
+            {b.id === effectiveBrandId && <span>✓</span>}
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />

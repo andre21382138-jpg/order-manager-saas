@@ -23,7 +23,6 @@ import { cn } from '@/lib/utils'
 type MenuItem = {
   href: string
   label: string
-  desc: string
   icon: typeof BarChart3
 }
 
@@ -36,16 +35,16 @@ const GROUPS: MenuGroup[] = [
   {
     title: '분석',
     items: [
-      { href: '/orders', label: '매출조회', desc: '기간 매출·주문·전환', icon: BarChart3 },
-      { href: '/ad-stats', label: '광고조회', desc: '캠페인·키워드 성과', icon: Megaphone },
-      { href: '/reports', label: '결산조회', desc: '상품구분 정산', icon: FileText },
+      { href: '/orders', label: '매출조회', icon: BarChart3 },
+      { href: '/ad-stats', label: '광고조회', icon: Megaphone },
+      { href: '/reports', label: '결산조회', icon: FileText },
     ],
   },
   {
     title: '관리',
     items: [
-      { href: '/products', label: '상품설정', desc: '상품·구분·매칭', icon: Package },
-      { href: '/settings/connections', label: 'API 연동', desc: '쇼핑몰·광고 계정', icon: Settings },
+      { href: '/products', label: '상품설정', icon: Package },
+      { href: '/settings/connections', label: 'API 연동', icon: Settings },
     ],
   },
 ]
@@ -77,10 +76,10 @@ function MenuList({
                 href={href}
                 onClick={onNavigate}
                 className={cn(
-                  'group relative flex items-start gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-all',
+                  'group relative flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-all',
                   active
                     ? 'bg-foreground text-background shadow-sm'
-                    : 'text-foreground hover:bg-muted/70'
+                    : 'text-foreground hover:bg-slate-200/70'
                 )}
               >
                 {active && (
@@ -88,23 +87,11 @@ function MenuList({
                 )}
                 <Icon
                   className={cn(
-                    'mt-0.5 h-4 w-4 shrink-0 transition-transform',
+                    'h-4 w-4 shrink-0 transition-transform',
                     active ? '' : 'text-muted-foreground group-hover:scale-110'
                   )}
                 />
-                <div className="min-w-0 flex-1">
-                  <div className={cn('font-medium leading-tight', !active && 'text-foreground')}>
-                    {m.label}
-                  </div>
-                  <div
-                    className={cn(
-                      'mt-0.5 text-[10.5px] leading-tight',
-                      active ? 'text-background/70' : 'text-muted-foreground'
-                    )}
-                  >
-                    {m.desc}
-                  </div>
-                </div>
+                <span className="font-medium">{m.label}</span>
               </Link>
             )
           })}
@@ -135,7 +122,7 @@ export function Sidebar({ brandId }: { brandId: string }) {
   return (
     <>
       {/* 데스크탑 사이드바 */}
-      <aside className="hidden md:block w-[240px] shrink-0 border-r bg-gradient-to-b from-background to-muted/30">
+      <aside className="hidden md:block w-[240px] shrink-0 border-r-2 border-slate-200 bg-slate-100 shadow-[inset_-4px_0_8px_-8px_rgba(15,23,42,0.15)]">
         <div className="sticky top-0 p-4">
           <SidebarHeader />
           <MenuList brandId={brandId} pathname={pathname} />

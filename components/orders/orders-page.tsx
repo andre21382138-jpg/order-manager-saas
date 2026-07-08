@@ -100,7 +100,7 @@ export function OrdersPage({
                 prev={prevKpis}
                 prevRange={prevRange}
               />
-              <DailyOrdersTable data={daily} />
+              <DailyOrdersTable data={daily} visitorsDaily={visitors.daily} />
               <ProductRankingTable data={products} prev={prevProducts} />
               {hasVisitors && (
                 <div className="grid gap-4 md:grid-cols-2">

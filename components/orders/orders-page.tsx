@@ -102,14 +102,14 @@ export function OrdersPage({
                   prevRange={prevRange}
                 />
               </section>
-              <section className="border-t border-border pt-6">
+              <section className="border-t-2 border-slate-300 pt-8">
                 <DailyOrdersTable data={daily} visitorsDaily={visitors.daily} />
               </section>
-              <section className="border-t border-border pt-6">
+              <section className="border-t-2 border-slate-300 pt-8">
                 <ProductRankingTable data={products} prev={prevProducts} />
               </section>
               {hasVisitors && (
-                <section className="border-t border-border pt-6">
+                <section className="border-t-2 border-slate-300 pt-8">
                   <div className="grid gap-4 md:grid-cols-2">
                     <VisitorStatsCard data={visitors} />
                     <TrafficSourcesTable data={traffic} />

@@ -32,6 +32,7 @@ type Props = {
   hasNewData: boolean
   prevRange: DateRange
   prevKpis: OrderKpis
+  prevProducts: ProductRow[]
 }
 
 type SubTab = 'dashboard' | 'lines'
@@ -50,6 +51,7 @@ export function OrdersPage({
   hasNewData,
   prevRange,
   prevKpis,
+  prevProducts,
 }: Props) {
   const [tab, setTab] = useState<SubTab>('dashboard')
 
@@ -99,7 +101,7 @@ export function OrdersPage({
                 prevRange={prevRange}
               />
               <DailyOrdersTable data={daily} />
-              <ProductRankingTable data={products} />
+              <ProductRankingTable data={products} prev={prevProducts} />
               {hasVisitors && (
                 <div className="grid gap-4 md:grid-cols-2">
                   <VisitorStatsCard data={visitors} />

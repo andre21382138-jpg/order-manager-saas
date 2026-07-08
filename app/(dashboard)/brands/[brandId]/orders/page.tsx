@@ -71,13 +71,14 @@ export default async function BrandOrdersPage({
     to: shiftMonth(range.to, -1),
   }
 
-  const [kpis, daily, products, visitors, traffic, prevKpis] = await Promise.all([
+  const [kpis, daily, products, visitors, traffic, prevKpis, prevProducts] = await Promise.all([
     getOrdersKpis(supabase, brandId, mall, range),
     getDailyOrders(supabase, brandId, mall, range),
     getProductRanking(supabase, brandId, mall, range),
     getVisitors(supabase, brandId, mall, range),
     getTrafficSources(supabase, brandId, mall, range),
     getOrdersKpis(supabase, brandId, mall, prevRange),
+    getProductRanking(supabase, brandId, mall, prevRange),
   ])
 
   const hasVisitors = mall !== 'all' && visitors.daily.length > 0
@@ -100,6 +101,7 @@ export default async function BrandOrdersPage({
       hasNewData={hasNewData}
       prevRange={prevRange}
       prevKpis={prevKpis}
+      prevProducts={prevProducts}
     />
   )
 }

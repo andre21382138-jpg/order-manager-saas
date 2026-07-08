@@ -183,7 +183,7 @@ const cafe24Adapter = {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
-              'X-Cafe24-Api-Version': '2025-12-01',
+              'X-Cafe24-Api-Version': '2026-03-01',
             },
           }
         )
@@ -270,7 +270,7 @@ const cafe24Adapter = {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
-              'X-Cafe24-Api-Version': '2025-12-01',
+              'X-Cafe24-Api-Version': '2026-03-01',
             },
           }
         )

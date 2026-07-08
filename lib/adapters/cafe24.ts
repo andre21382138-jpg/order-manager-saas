@@ -15,7 +15,7 @@ export const CAFE24_SCOPES = [
   'mall.read_category',
 ] as const
 
-export const CAFE24_API_VERSION = '2025-12-01'
+export const CAFE24_API_VERSION = '2026-03-01'
 
 function basicAuth(appId: string, appSecret: string): string {
   return 'Basic ' + Buffer.from(`${appId}:${appSecret}`).toString('base64')

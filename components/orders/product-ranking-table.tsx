@@ -1,6 +1,7 @@
 'use client'
 import { useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { ProductRow } from '@/lib/queries/orders'
 
@@ -49,6 +50,7 @@ export function ProductRankingTable({
 }) {
   const [sortKey, setSortKey] = useState<SortKey>('amount')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [expanded, setExpanded] = useState(false)
 
   const prevByName = useMemo(() => new Map(prev.map((r) => [r.product_name, r])), [prev])
 
@@ -80,10 +82,15 @@ export function ProductRankingTable({
     }
   }
 
+  const visibleRows = expanded ? rows : rows.slice(0, 10)
+  const hiddenCount = rows.length - visibleRows.length
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">🏆 상품 판매 순위 (Top 10)</CardTitle>
+        <CardTitle className="text-base">
+          🏆 상품 판매 순위 {expanded ? `(총 ${rows.length}개)` : '(Top 10)'}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -167,7 +174,7 @@ export function ProductRankingTable({
                   </td>
                 </tr>
               )}
-              {rows.map((r, i) => {
+              {visibleRows.map((r, i) => {
                 const prevQty = r.prev_qty !== null ? `${r.prev_qty.toLocaleString('ko-KR')}개` : '(-)'
                 const prevAmt = r.prev_amount !== null ? fmtWon(r.prev_amount) : '(-)'
                 const prevShare = r.prev_share !== null ? `${r.prev_share.toFixed(1)}%` : '(-)'
@@ -207,6 +214,18 @@ export function ProductRankingTable({
             </tbody>
           </table>
         </div>
+        {rows.length > 10 && (
+          <div className="mt-3 flex justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setExpanded(!expanded)}
+            >
+              {expanded ? '접기' : `더보기 (+${hiddenCount}개)`}
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

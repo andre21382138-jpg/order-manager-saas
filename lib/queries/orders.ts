@@ -172,13 +172,15 @@ export async function getProductRanking(
   supabase: SupabaseClient,
   brandId: string,
   mall: string,
-  range: DateRange
+  range: DateRange,
+  limit = 100
 ): Promise<ProductRow[]> {
   const { data, error } = await supabase.rpc('get_product_ranking', {
     p_brand_id: brandId,
     p_mall: mall,
     p_from: range.from,
     p_to: range.to,
+    p_limit: limit,
   })
   if (error) throw new Error(`상품 순위 조회 실패: ${error.message}`)
   const rows = (data ?? []).map((r: { product_name: string; qty: number; amount: number | string }) => ({

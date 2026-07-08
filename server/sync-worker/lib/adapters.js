@@ -292,46 +292,48 @@ const cafe24Adapter = {
       const orders = Array.isArray(r.data?.orders) ? r.data.orders : []
       if (orders.length === 0) break
 
-      // 진단: return_confirmed_date가 채워진 첫 주문(부분 환불 케이스 추정)의 전체 필드 로그
-      if (!global.__loggedRefundOrder) {
-        const refundOrder = orders.find((o) => o.return_confirmed_date || (o.items || []).some((it) => it.claim_type || it.claim_code || it.refund_amount))
-        if (refundOrder) {
-          global.__loggedRefundOrder = true
-          console.log('[DIAG-REFUND] order_id:', refundOrder.order_id)
-          console.log('[DIAG-REFUND] top keys with values:',
-            Object.entries(refundOrder)
-              .filter(([k]) => /cancel|return|refund|claim|paid|shipping_status/i.test(k))
-              .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
-              .join(' | ')
-          )
-          const firstItem = (refundOrder.items || [])[0]
-          if (firstItem) {
-            console.log('[DIAG-REFUND] first item keys:', Object.keys(firstItem).sort().join(', '))
-            console.log('[DIAG-REFUND] first item sample:', JSON.stringify(firstItem).slice(0, 1500))
-          }
-        }
-      }
-
       const orderRows = orders.map((o) => {
         const itemsArr = Array.isArray(o.items) ? o.items : []
         const totalQty = itemsArr.reduce((sum, it) => sum + Number(it.quantity ?? 0), 0)
-        // 카페24 v2 API는 top-level `canceled` 필드로 취소 여부를 반환 ("T"/"F")
+        // 카페24 v2 API: order-level canceled="T"/"F"
         const isCancelled = String(o.canceled ?? '').toUpperCase() === 'T'
-        // 취소 주문은 initial_order_amount, 진행 주문은 actual_order_amount 사용
+        // 부분 환불 판별: item.status_code가 C*/R* 이면 그 item은 취소·반품 상태
+        const isItemActive = (item) => {
+          const sc = String(item?.status_code ?? '')
+          // N* 정상, E* 교환완료(대체상품 배송) → 매출 인정. C* 취소, R* 반품 → 제외
+          return !sc || sc.startsWith('N') || sc.startsWith('E')
+        }
+        const hasPartialRefund = !isCancelled && itemsArr.some((it) => !isItemActive(it))
+
         const amountSource = isCancelled ? o.initial_order_amount : o.actual_order_amount
         const rawPayment = Number(amountSource?.payment_amount ?? 0)
         const originalAmount = Number(amountSource?.order_price_amount ?? 0)
-        // 적립금·예치금 사용액 (카페24는 회계상 매출로 인정 → 우리도 결제합계에 포함)
         const pointsSpent = Number(amountSource?.points_spent_amount ?? 0)
         const creditsSpent = Number(amountSource?.credits_spent_amount ?? 0)
-        // 네이버페이 포인트 보정
         const isNaverPay = !isCancelled && o.order_place_id === 'NCHECKOUT'
         const naverPoint = isNaverPay
           ? (Number(o.naver_point ?? 0) || Math.max(0, originalAmount - rawPayment))
           : 0
-        // 카페24 admin의 '결제합계' 정의와 일치 (payment_amount + 적립금 + 예치금 + 네이버포인트)
-        const totalAmount = rawPayment + pointsSpent + creditsSpent + naverPoint
-        // 회원구매 vs 비회원, 신규 vs 재구매
+
+        // total_amount 계산
+        // - 전체 취소: initial_order_amount 기준 payment + 적립 + 예치 + 네이버포인트 (환불추적용)
+        // - 부분 환불: 활성 item들의 순매출 합 (product_price·수량·할인 반영)
+        // - 정상 주문: actual_order_amount 기준 payment + 적립 + 예치 + 네이버포인트
+        let totalAmount
+        if (hasPartialRefund) {
+          let net = 0
+          for (const item of itemsArr) {
+            if (!isItemActive(item)) continue
+            const price = Number(item.product_price ?? 0) * Number(item.quantity ?? 1)
+            const addDiscount = Number(item.additional_discount_price ?? 0)
+            const couponDiscount = Number(item.coupon_discount_price ?? 0)
+            net += price - addDiscount - couponDiscount
+          }
+          totalAmount = net
+        } else {
+          totalAmount = rawPayment + pointsSpent + creditsSpent + naverPoint
+        }
+
         const memberId = o.member_id ? String(o.member_id) : null
         const isNew = o.first_order === 'T'
         return {
@@ -346,7 +348,7 @@ const cafe24Adapter = {
           is_new: isNew,
           naver_amount: naverPoint,
           member_id: memberId,
-          order_status: isCancelled ? 'CANCELED' : (o.paid === 'T' ? 'PAID' : 'PENDING'),
+          order_status: isCancelled ? 'CANCELED' : (hasPartialRefund ? 'PARTIAL_REFUND' : (o.paid === 'T' ? 'PAID' : 'PENDING')),
         }
       })
 

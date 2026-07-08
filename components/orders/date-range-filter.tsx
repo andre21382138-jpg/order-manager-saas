@@ -1,4 +1,5 @@
 'use client'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import type { DateRange } from '@/lib/queries/orders'
@@ -39,32 +40,55 @@ type Props = {
 
 export function DateRangeFilter({ brandId, mall, value }: Props) {
   const router = useRouter()
+  const [from, setFrom] = useState(value.from)
+  const [to, setTo] = useState(value.to)
 
-  function updateRange(r: DateRange) {
+  useEffect(() => {
+    setFrom(value.from)
+    setTo(value.to)
+  }, [value.from, value.to])
+
+  function navigate(r: DateRange) {
     const q = new URLSearchParams({ mall, from: r.from, to: r.to })
     router.push(`/brands/${brandId}/orders?${q.toString()}`)
   }
 
+  function applyPreset(p: Preset) {
+    const r = presetRange(p)
+    setFrom(r.from)
+    setTo(r.to)
+    navigate(r)
+  }
+
+  const dirty = from !== value.from || to !== value.to
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       {(['7일', '30일', '당월', '전월'] as Preset[]).map((p) => (
-        <Button key={p} variant="outline" size="sm" onClick={() => updateRange(presetRange(p))}>
+        <Button key={p} variant="outline" size="sm" onClick={() => applyPreset(p)}>
           {p}
         </Button>
       ))}
       <input
         type="date"
         className="rounded-md border border-input bg-background px-3 py-1 text-sm"
-        value={value.from}
-        onChange={(e) => updateRange({ ...value, from: e.target.value })}
+        value={from}
+        onChange={(e) => setFrom(e.target.value)}
       />
       <span className="text-sm text-muted-foreground">~</span>
       <input
         type="date"
         className="rounded-md border border-input bg-background px-3 py-1 text-sm"
-        value={value.to}
-        onChange={(e) => updateRange({ ...value, to: e.target.value })}
+        value={to}
+        onChange={(e) => setTo(e.target.value)}
       />
+      <Button
+        variant={dirty ? 'default' : 'outline'}
+        size="sm"
+        onClick={() => navigate({ from, to })}
+      >
+        조회
+      </Button>
     </div>
   )
 }

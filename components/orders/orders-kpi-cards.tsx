@@ -119,7 +119,7 @@ function buildDelta(
 ): Delta {
   if (cur === null || prev === null) return { text: '—', tone: 'none' }
   const d = cur - prev
-  if (d === 0) return { text: format(0), tone: 'flat' }
+  if (d === 0) return { text: '동일', tone: 'flat' }
   const sign = d > 0 ? '+' : '-'
   return {
     text: `${sign}${format(Math.abs(d))}`,

@@ -1,8 +1,43 @@
+'use client'
+import { useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import type { ProductRow } from '@/lib/queries/orders'
 
 function fmtWon(n: number): string {
   return `₩${Math.round(n).toLocaleString('ko-KR')}`
+}
+
+type SortKey = 'qty' | 'amount' | 'share' | 'prev_qty' | 'prev_amount' | 'prev_share'
+type SortDir = 'asc' | 'desc'
+
+function SortLabel({
+  active,
+  dir,
+  onClick,
+  children,
+  className,
+}: {
+  active: boolean
+  dir: SortDir
+  onClick: () => void
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center gap-0.5 hover:text-foreground',
+        active && 'text-foreground font-medium',
+        className
+      )}
+    >
+      {children}
+      {active && <span className="text-[10px]">{dir === 'desc' ? '▼' : '▲'}</span>}
+    </button>
+  )
 }
 
 export function ProductRankingTable({
@@ -12,7 +47,38 @@ export function ProductRankingTable({
   data: ProductRow[]
   prev?: ProductRow[]
 }) {
-  const prevByName = new Map(prev.map((r) => [r.product_name, r]))
+  const [sortKey, setSortKey] = useState<SortKey>('amount')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  const prevByName = useMemo(() => new Map(prev.map((r) => [r.product_name, r])), [prev])
+
+  const rows = useMemo(() => {
+    const enriched = data.map((r) => {
+      const p = prevByName.get(r.product_name)
+      return {
+        ...r,
+        prev_qty: p?.qty ?? null,
+        prev_amount: p?.amount ?? null,
+        prev_share: p?.share ?? null,
+      }
+    })
+    const dir = sortDir === 'desc' ? -1 : 1
+    return [...enriched].sort((a, b) => {
+      const va = (a[sortKey] ?? -Infinity) as number
+      const vb = (b[sortKey] ?? -Infinity) as number
+      if (va === vb) return 0
+      return va > vb ? dir : -dir
+    })
+  }, [data, prevByName, sortKey, sortDir])
+
+  function toggle(k: SortKey) {
+    if (sortKey === k) {
+      setSortDir(sortDir === 'desc' ? 'asc' : 'desc')
+    } else {
+      setSortKey(k)
+      setSortDir('desc')
+    }
+  }
 
   return (
     <Card>
@@ -26,24 +92,70 @@ export function ProductRankingTable({
               <tr className="border-b text-left text-muted-foreground">
                 <th className="py-2 pr-4">#</th>
                 <th className="py-2 pr-4">상품명</th>
-                <th className="py-2 pr-4 text-right">판매 수량 (전월)</th>
-                <th className="py-2 pr-4 text-right">매출액 (전월)</th>
-                <th className="py-2 pr-4 text-right">비중 (전월)</th>
+                <th className="py-2 pr-4 text-right">
+                  <SortLabel active={sortKey === 'qty'} dir={sortDir} onClick={() => toggle('qty')}>
+                    판매수량
+                  </SortLabel>
+                  <span className="mx-1">/</span>
+                  <SortLabel
+                    active={sortKey === 'prev_qty'}
+                    dir={sortDir}
+                    onClick={() => toggle('prev_qty')}
+                    className="text-xs"
+                  >
+                    (전월)
+                  </SortLabel>
+                </th>
+                <th className="py-2 pr-4 text-right">
+                  <SortLabel
+                    active={sortKey === 'amount'}
+                    dir={sortDir}
+                    onClick={() => toggle('amount')}
+                  >
+                    매출액
+                  </SortLabel>
+                  <span className="mx-1">/</span>
+                  <SortLabel
+                    active={sortKey === 'prev_amount'}
+                    dir={sortDir}
+                    onClick={() => toggle('prev_amount')}
+                    className="text-xs"
+                  >
+                    (전월)
+                  </SortLabel>
+                </th>
+                <th className="py-2 pr-4 text-right">
+                  <SortLabel
+                    active={sortKey === 'share'}
+                    dir={sortDir}
+                    onClick={() => toggle('share')}
+                  >
+                    비중
+                  </SortLabel>
+                  <span className="mx-1">/</span>
+                  <SortLabel
+                    active={sortKey === 'prev_share'}
+                    dir={sortDir}
+                    onClick={() => toggle('prev_share')}
+                    className="text-xs"
+                  >
+                    (전월)
+                  </SortLabel>
+                </th>
               </tr>
             </thead>
             <tbody>
-              {data.length === 0 && (
+              {rows.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-4 text-center text-muted-foreground">
                     데이터 없음
                   </td>
                 </tr>
               )}
-              {data.map((r, i) => {
-                const p = prevByName.get(r.product_name)
-                const prevQty = p ? `${p.qty.toLocaleString('ko-KR')}개` : '—'
-                const prevAmt = p ? fmtWon(p.amount) : '—'
-                const prevShare = p ? `${p.share.toFixed(1)}%` : '—'
+              {rows.map((r, i) => {
+                const prevQty = r.prev_qty !== null ? `${r.prev_qty.toLocaleString('ko-KR')}개` : '—'
+                const prevAmt = r.prev_amount !== null ? fmtWon(r.prev_amount) : '—'
+                const prevShare = r.prev_share !== null ? `${r.prev_share.toFixed(1)}%` : '—'
                 return (
                   <tr key={`${r.product_name}-${i}`} className="border-b">
                     <td className="py-2 pr-4 font-medium">{i + 1}</td>

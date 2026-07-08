@@ -57,7 +57,11 @@ export function AdStatsPage({
   if (!hasCredential) {
     return (
       <div className="space-y-6 p-6">
-        <h1 className="text-2xl font-bold">{brand.name} — 광고 분석</h1>
+        <h1 className="flex items-baseline gap-2 text-2xl font-bold">
+          <span className="text-base font-medium text-muted-foreground">{brand.name}</span>
+          <span className="text-muted-foreground/40">/</span>
+          <span>광고 분석</span>
+        </h1>
         <Card>
           <CardHeader>
             <CardTitle>광고 자격증명 미등록</CardTitle>
@@ -81,7 +85,11 @@ export function AdStatsPage({
   return (
     <div className="space-y-6 p-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-2xl font-bold">{brand.name} — 광고 분석</h1>
+        <h1 className="flex items-baseline gap-2 text-2xl font-bold">
+          <span className="text-base font-medium text-muted-foreground">{brand.name}</span>
+          <span className="text-muted-foreground/40">/</span>
+          <span>광고 분석</span>
+        </h1>
         <DateRangeFilter value={range} onChange={setRange} />
       </div>
 

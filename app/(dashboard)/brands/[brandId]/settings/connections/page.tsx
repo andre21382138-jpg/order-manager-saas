@@ -103,7 +103,11 @@ export default async function ConnectionsPage({
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">{brand.name} — 매체 연동</h1>
+      <h1 className="flex items-baseline gap-2 text-2xl font-bold">
+        <span className="text-base font-medium text-muted-foreground">{brand.name}</span>
+        <span className="text-muted-foreground/40">/</span>
+        <span>매체 연동</span>
+      </h1>
 
       {sp.connected && (
         <Card className="border-emerald-300 bg-emerald-50">

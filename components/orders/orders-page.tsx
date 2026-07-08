@@ -58,7 +58,11 @@ export function OrdersPage({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-2xl font-bold">{brand.name} — 매출조회</h1>
+        <h1 className="flex items-baseline gap-2 text-2xl font-bold">
+          <span className="text-base font-medium text-muted-foreground">{brand.name}</span>
+          <span className="text-muted-foreground/40">/</span>
+          <span>매출조회</span>
+        </h1>
         <DateRangeFilter brandId={brand.id} mall={mall} value={range} />
       </div>
 

@@ -14,18 +14,28 @@ export async function Header({ currentBrandId }: { currentBrandId?: string }) {
 
   return (
     <header className="border-b bg-white">
-      <div className="flex h-14 items-center justify-between px-4">
-        <div className="flex items-center gap-4">
-          <Link href="/brands" className="font-bold hover:underline">쇼핑몰 정산 프로그램</Link>
-          {brands.length > 0 && (
-            <BrandSwitcher currentBrandId={currentBrandId ?? null} brands={brands} />
-          )}
+      <div className="flex h-14 items-stretch">
+        {/* 데스크탑: 사이드바 폭과 정확히 일치하는 좌측 컬럼 */}
+        <div className="hidden md:flex w-[240px] shrink-0 items-center border-r-2 border-slate-200 bg-slate-100 px-6">
+          <Link href="/brands" className="font-bold hover:underline">
+            쇼핑몰 정산 프로그램
+          </Link>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          {user && <span className="text-muted-foreground">{user.email}</span>}
-          <form action="/api/auth/signout" method="post">
-            <Button type="submit" variant="outline" size="sm">로그아웃</Button>
-          </form>
+        <div className="flex flex-1 items-center justify-between px-4">
+          <div className="flex items-center gap-4 pl-10 md:pl-0">
+            <Link href="/brands" className="font-bold hover:underline md:hidden">
+              쇼핑몰 정산
+            </Link>
+            {brands.length > 0 && (
+              <BrandSwitcher currentBrandId={currentBrandId ?? null} brands={brands} />
+            )}
+          </div>
+          <div className="flex items-center gap-3 text-sm">
+            {user && <span className="text-muted-foreground">{user.email}</span>}
+            <form action="/api/auth/signout" method="post">
+              <Button type="submit" variant="outline" size="sm">로그아웃</Button>
+            </form>
+          </div>
         </div>
       </div>
     </header>

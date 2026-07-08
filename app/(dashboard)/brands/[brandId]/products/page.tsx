@@ -44,7 +44,11 @@ export default async function BrandProductsPage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">{brand.name} — 상품</h1>
+      <h1 className="flex items-baseline gap-2 text-2xl font-bold">
+        <span className="text-base font-medium text-muted-foreground">{brand.name}</span>
+        <span className="text-muted-foreground/40">/</span>
+        <span>상품</span>
+      </h1>
       <ProductsClient
         brandId={brand.id}
         stores={stores}

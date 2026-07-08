@@ -82,7 +82,9 @@ export default async function NewApiKeyCredentialPage({
       <Card>
         <CardHeader>
           <CardTitle>
-            {brand.name} — {title} 계정 추가
+            <span className="mr-2 text-base font-medium text-muted-foreground">{brand.name}</span>
+            <span className="text-muted-foreground/40">/</span>
+            <span className="ml-2">{title} 계정 추가</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">

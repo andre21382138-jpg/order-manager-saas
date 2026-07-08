@@ -30,7 +30,11 @@ export default async function NewCafe24CredentialPage({
     <div className="mx-auto max-w-2xl space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>{brand.name} — 카페24 계정 추가</CardTitle>
+          <CardTitle>
+            <span className="mr-2 text-base font-medium text-muted-foreground">{brand.name}</span>
+            <span className="text-muted-foreground/40">/</span>
+            <span className="ml-2">카페24 계정 추가</span>
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900 space-y-2">

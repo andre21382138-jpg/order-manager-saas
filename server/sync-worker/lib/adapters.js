@@ -292,29 +292,26 @@ const cafe24Adapter = {
       const orders = Array.isArray(r.data?.orders) ? r.data.orders : []
       if (orders.length === 0) break
 
-      // 진단 로그: 첫 번째 주문의 top-level 키를 pm2 로그로 남김 (한 번만)
-      if (orders[0] && !global.__loggedOrderKeys) {
-        global.__loggedOrderKeys = true
-        console.log('[DIAG] cafe24 order keys:', Object.keys(orders[0]).sort().join(', '))
-        console.log('[DIAG] cafe24 first order sample:', JSON.stringify(orders[0]).slice(0, 2000))
-      }
-
       const orderRows = orders.map((o) => {
         const itemsArr = Array.isArray(o.items) ? o.items : []
         const totalQty = itemsArr.reduce((sum, it) => sum + Number(it.quantity ?? 0), 0)
-        const cancelStatuses = ['CANCEL_DONE', 'RETURN_DONE', 'EXCHANGE_DONE', 'CANCEL_NOSHIPPING', 'CANCELED_BY_NOPAYMENT', 'CANCELED']
-        const isCancelled = cancelStatuses.includes(o.order_status)
-        // 옛 운영 코드(src/App.js L1044~1052) 동일 매핑 — actual_order_amount / initial_order_amount 객체 안의 payment_amount / order_price_amount
+        // 카페24 v2 API는 top-level `canceled` 필드로 취소 여부를 반환 ("T"/"F")
+        const isCancelled = String(o.canceled ?? '').toUpperCase() === 'T'
+        // 취소 주문은 initial_order_amount, 진행 주문은 actual_order_amount 사용
         const amountSource = isCancelled ? o.initial_order_amount : o.actual_order_amount
         const rawPayment = Number(amountSource?.payment_amount ?? 0)
         const originalAmount = Number(amountSource?.order_price_amount ?? 0)
-        // 네이버페이 포인트 보정 (payment_amount는 네이버포인트 제외값)
+        // 적립금·예치금 사용액 (카페24는 회계상 매출로 인정 → 우리도 결제합계에 포함)
+        const pointsSpent = Number(amountSource?.points_spent_amount ?? 0)
+        const creditsSpent = Number(amountSource?.credits_spent_amount ?? 0)
+        // 네이버페이 포인트 보정
         const isNaverPay = !isCancelled && o.order_place_id === 'NCHECKOUT'
         const naverPoint = isNaverPay
           ? (Number(o.naver_point ?? 0) || Math.max(0, originalAmount - rawPayment))
           : 0
-        const totalAmount = rawPayment + naverPoint
-        // 회원구매(member_id != null) vs 비회원, 신규(first_order='T') vs 재구매
+        // 카페24 admin의 '결제합계' 정의와 일치 (payment_amount + 적립금 + 예치금 + 네이버포인트)
+        const totalAmount = rawPayment + pointsSpent + creditsSpent + naverPoint
+        // 회원구매 vs 비회원, 신규 vs 재구매
         const memberId = o.member_id ? String(o.member_id) : null
         const isNew = o.first_order === 'T'
         return {
@@ -329,7 +326,7 @@ const cafe24Adapter = {
           is_new: isNew,
           naver_amount: naverPoint,
           member_id: memberId,
-          order_status: o.order_status ?? null,
+          order_status: isCancelled ? 'CANCELED' : (o.paid === 'T' ? 'PAID' : 'PENDING'),
         }
       })
 

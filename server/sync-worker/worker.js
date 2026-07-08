@@ -121,6 +121,7 @@ async function pollOnce() {
       channelAccount: cred.channel_account,
       dateRangeStart: job.date_range_start,
       dateRangeEnd: job.date_range_end,
+      metadata: cred.metadata ?? {},
     }
     const result = await method(creds, ctx)
 

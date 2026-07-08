@@ -867,7 +867,18 @@ const naverAdAdapter = {
         retryable: true,
       }
     }
-    const campaignList = Array.isArray(campResp.data) ? campResp.data : []
+    let campaignList = Array.isArray(campResp.data) ? campResp.data : []
+
+    // metadata.campaignNameFilter: 캠페인 이름에 지정 문자열이 포함된 것만 대상
+    // (공유 광고계정에서 브랜드별로 사용할 캠페인만 골라 sync)
+    const campaignNameFilter = (ctx.metadata && ctx.metadata.campaignNameFilter) || null
+    if (campaignNameFilter) {
+      const before = campaignList.length
+      const needle = String(campaignNameFilter).toLowerCase()
+      campaignList = campaignList.filter((c) => String(c.name || '').toLowerCase().includes(needle))
+      warnings.push({ code: 'campaign_filter', before, after: campaignList.length, filter: campaignNameFilter })
+    }
+
     if (campaignList.length === 0) {
       return { ok: true, rowsUpserted: 0, meta: { ad_units_upserted: 0, ad_stats_upserted: 0, skipped_count: 0, warnings_count: 0 } }
     }
@@ -1211,7 +1222,17 @@ const naverAdAdapter = {
     if (campResp.status !== 200) {
       return { ok: false, error: `campaigns 조회 실패 (${campResp.status})`, retryable: true }
     }
-    const campaignList = Array.isArray(campResp.data) ? campResp.data : []
+    let campaignList = Array.isArray(campResp.data) ? campResp.data : []
+
+    // metadata.campaignNameFilter: 캠페인 이름에 지정 문자열이 포함된 것만 대상
+    const campaignNameFilter = (ctx.metadata && ctx.metadata.campaignNameFilter) || null
+    if (campaignNameFilter) {
+      const before = campaignList.length
+      const needle = String(campaignNameFilter).toLowerCase()
+      campaignList = campaignList.filter((c) => String(c.name || '').toLowerCase().includes(needle))
+      warnings.push({ code: 'campaign_filter', before, after: campaignList.length, filter: campaignNameFilter })
+    }
+
     const allCampaignIds = campaignList.map((c) => c.nccCampaignId).filter(Boolean)
     const idToCampaign = {}
     for (const c of campaignList) {

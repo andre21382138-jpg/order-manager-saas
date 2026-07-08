@@ -50,6 +50,7 @@ export function VisitorStatsCard({
             </div>
           </div>
         </div>
+        <div className="text-xs text-muted-foreground">일자별 순 방문자</div>
         <div className="h-40 w-full">
           {data.daily.length === 0 ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -62,11 +63,15 @@ export function VisitorStatsCard({
                 <XAxis dataKey="date" fontSize={11} />
                 <YAxis fontSize={11} />
                 <Tooltip
-                  formatter={(v) => (typeof v === 'number' ? v.toLocaleString('ko-KR') : '—')}
+                  formatter={(v) => [
+                    typeof v === 'number' ? v.toLocaleString('ko-KR') : '—',
+                    '순 방문자',
+                  ]}
                 />
                 <Area
                   type="monotone"
                   dataKey="visits"
+                  name="순 방문자"
                   stroke="#06B6D4"
                   fill="#06B6D4"
                   fillOpacity={0.2}

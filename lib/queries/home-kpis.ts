@@ -5,10 +5,11 @@ export type HomeKpis = {
   todayOrderCount: number
   monthRevenue: number
   avgOrderValue: number
-  yesterdayAdCost: number
-  thirtyDayAdCost: number
-  sevenDayRoas: number | null
+  todayAdCost: number
+  monthAdCost: number
+  todayRoas: number | null
   activeCampaignCount: number
+  asOf: string // KST datetime label
 }
 
 export type DailyRevenuePoint = { date: string; revenue: number }
@@ -45,15 +46,22 @@ function toNum(v: number | string | null | undefined): number {
   return 0
 }
 
+function nowKstLabel(): string {
+  const n = kstNow()
+  const y = n.getUTCFullYear()
+  const m = String(n.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(n.getUTCDate()).padStart(2, '0')
+  const hh = String(n.getUTCHours()).padStart(2, '0')
+  const mm = String(n.getUTCMinutes()).padStart(2, '0')
+  return `${y}-${m}-${d} ${hh}:${mm}`
+}
+
 export async function getHomeKpis(
   supabase: SupabaseClient,
   brandId: string
 ): Promise<HomeKpis> {
   const today = todayKst()
-  const yesterday = yesterdayKst()
   const firstOfMonth = firstOfMonthKst()
-  const sevenDaysAgo = daysAgoKst(7)
-  const thirtyDaysAgo = daysAgoKst(30)
 
   // 1. 오늘 매출 + 주문 건수
   const { data: todayOrders } = await supabase
@@ -86,15 +94,15 @@ export async function getHomeKpis(
   const monthOrderCount = monthOrders?.length ?? 0
   const avgOrderValue = monthOrderCount > 0 ? monthRevenue / monthOrderCount : 0
 
-  // 3. 어제 광고비 (ad_stats JOIN ad_units level=campaign)
-  const { data: yesterdayAd } = await supabase
+  // 3. 오늘 광고비 (ad_stats JOIN ad_units level=campaign)
+  const { data: todayAd } = await supabase
     .from('ad_stats')
     .select('cost, ad_units!inner(level)')
     .eq('brand_id', brandId)
-    .eq('date', yesterday)
+    .eq('date', today)
     .limit(100000)
 
-  const yesterdayAdCost = (yesterdayAd ?? [])
+  const todayAdCost = (todayAd ?? [])
     .filter((r) => {
       const u = r.ad_units as unknown as { level?: string } | { level?: string }[]
       const level = Array.isArray(u) ? u[0]?.level : u?.level
@@ -102,15 +110,15 @@ export async function getHomeKpis(
     })
     .reduce((sum, r) => sum + toNum(r.cost), 0)
 
-  // 4. 30일 광고비
-  const { data: thirtyDayAd } = await supabase
+  // 4. 이번달 광고비
+  const { data: monthAd } = await supabase
     .from('ad_stats')
     .select('cost, ad_units!inner(level)')
     .eq('brand_id', brandId)
-    .gte('date', thirtyDaysAgo)
+    .gte('date', firstOfMonth)
     .limit(100000)
 
-  const thirtyDayAdCost = (thirtyDayAd ?? [])
+  const monthAdCost = (monthAd ?? [])
     .filter((r) => {
       const u = r.ad_units as unknown as { level?: string } | { level?: string }[]
       const level = Array.isArray(u) ? u[0]?.level : u?.level
@@ -118,37 +126,8 @@ export async function getHomeKpis(
     })
     .reduce((sum, r) => sum + toNum(r.cost), 0)
 
-  // 5. 7일 ROAS (7일 매출 / 7일 광고비 × 100)
-  const { data: sevenDayOrders } = await supabase
-    .from('orders')
-    .select('total_amount')
-    .eq('brand_id', brandId)
-    .eq('is_cancelled', false)
-    .gte('date', sevenDaysAgo)
-    .limit(100000)
-
-  const sevenDayRevenue = (sevenDayOrders ?? []).reduce(
-    (sum, r) => sum + toNum(r.total_amount),
-    0
-  )
-
-  const { data: sevenDayAd } = await supabase
-    .from('ad_stats')
-    .select('cost, ad_units!inner(level)')
-    .eq('brand_id', brandId)
-    .gte('date', sevenDaysAgo)
-    .limit(100000)
-
-  const sevenDayAdCost = (sevenDayAd ?? [])
-    .filter((r) => {
-      const u = r.ad_units as unknown as { level?: string } | { level?: string }[]
-      const level = Array.isArray(u) ? u[0]?.level : u?.level
-      return level === 'campaign'
-    })
-    .reduce((sum, r) => sum + toNum(r.cost), 0)
-
-  const sevenDayRoas =
-    sevenDayAdCost > 0 ? (sevenDayRevenue / sevenDayAdCost) * 100 : null
+  // 5. 오늘 ROAS (오늘 매출 / 오늘 광고비 × 100)
+  const todayRoas = todayAdCost > 0 ? (todayRevenue / todayAdCost) * 100 : null
 
   // 6. 활성 캠페인
   const { count: activeCampaignCount } = await supabase
@@ -164,10 +143,11 @@ export async function getHomeKpis(
     todayOrderCount,
     monthRevenue,
     avgOrderValue,
-    yesterdayAdCost,
-    thirtyDayAdCost,
-    sevenDayRoas,
+    todayAdCost,
+    monthAdCost,
+    todayRoas,
     activeCampaignCount: activeCampaignCount ?? 0,
+    asOf: nowKstLabel(),
   }
 }
 

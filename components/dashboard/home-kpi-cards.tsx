@@ -28,7 +28,7 @@ const CARDS: CardDef[] = [
     format: (k) => `₩${Math.round(k.monthRevenue).toLocaleString('ko-KR')}`,
   },
   {
-    label: '평균 주문가',
+    label: '객단가',
     emoji: '📊',
     color: 'text-purple-600',
     format: (k) =>
@@ -37,23 +37,22 @@ const CARDS: CardDef[] = [
         : `₩${Math.round(k.avgOrderValue).toLocaleString('ko-KR')}`,
   },
   {
-    label: '어제 광고비',
+    label: '오늘 광고비',
     emoji: '📣',
     color: 'text-rose-600',
-    format: (k) => `₩${Math.round(k.yesterdayAdCost).toLocaleString('ko-KR')}`,
+    format: (k) => `₩${Math.round(k.todayAdCost).toLocaleString('ko-KR')}`,
   },
   {
-    label: '30일 광고비',
+    label: '이번달 광고비',
     emoji: '💸',
     color: 'text-rose-700',
-    format: (k) => `₩${Math.round(k.thirtyDayAdCost).toLocaleString('ko-KR')}`,
+    format: (k) => `₩${Math.round(k.monthAdCost).toLocaleString('ko-KR')}`,
   },
   {
-    label: '7일 ROAS',
+    label: '오늘 ROAS',
     emoji: '🎯',
     color: 'text-amber-600',
-    format: (k) =>
-      k.sevenDayRoas === null ? '—' : `${k.sevenDayRoas.toFixed(0)}%`,
+    format: (k) => (k.todayRoas === null ? '—' : `${k.todayRoas.toFixed(0)}%`),
   },
   {
     label: '활성 캠페인',

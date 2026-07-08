@@ -33,12 +33,13 @@ export default async function BrandHomePage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
+      <div className="flex items-baseline gap-3">
         <span
-          className="inline-block h-4 w-4 rounded-full"
+          className="inline-block h-4 w-4 self-center rounded-full"
           style={{ backgroundColor: brand.color ?? '#94a3b8' }}
         />
         <h1 className="text-2xl font-bold">{brand.name}</h1>
+        <span className="text-sm text-muted-foreground">{kpis.asOf} 기준</span>
       </div>
 
       <HomeKpiCards data={kpis} />

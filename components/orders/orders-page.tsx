@@ -92,23 +92,31 @@ export function OrdersPage({
           </div>
 
           {tab === 'dashboard' ? (
-            <>
-              <OrdersKpiCards
-                data={kpis}
-                showVisits={hasVisitors}
-                showNew={hasNewData}
-                prev={prevKpis}
-                prevRange={prevRange}
-              />
-              <DailyOrdersTable data={daily} visitorsDaily={visitors.daily} />
-              <ProductRankingTable data={products} prev={prevProducts} />
+            <div className="space-y-8">
+              <section>
+                <OrdersKpiCards
+                  data={kpis}
+                  showVisits={hasVisitors}
+                  showNew={hasNewData}
+                  prev={prevKpis}
+                  prevRange={prevRange}
+                />
+              </section>
+              <section className="border-t border-border pt-6">
+                <DailyOrdersTable data={daily} visitorsDaily={visitors.daily} />
+              </section>
+              <section className="border-t border-border pt-6">
+                <ProductRankingTable data={products} prev={prevProducts} />
+              </section>
               {hasVisitors && (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <VisitorStatsCard data={visitors} />
-                  <TrafficSourcesTable data={traffic} />
-                </div>
+                <section className="border-t border-border pt-6">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <VisitorStatsCard data={visitors} />
+                    <TrafficSourcesTable data={traffic} />
+                  </div>
+                </section>
               )}
-            </>
+            </div>
           ) : (
             <OrderLinesTab brandId={brand.id} mall={mall} range={range} />
           )}

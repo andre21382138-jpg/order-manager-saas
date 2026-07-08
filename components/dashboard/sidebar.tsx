@@ -9,7 +9,6 @@ import {
   Settings,
   Menu,
   FileText,
-  LayoutDashboard,
 } from 'lucide-react'
 import {
   Sheet,
@@ -101,20 +100,6 @@ function MenuList({
   )
 }
 
-function SidebarHeader() {
-  return (
-    <div className="mb-4 flex items-center gap-2 px-2 py-1">
-      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground text-background">
-        <LayoutDashboard className="h-4 w-4" />
-      </div>
-      <div>
-        <div className="text-sm font-semibold leading-tight">쇼핑몰 정산</div>
-        <div className="text-[10px] leading-tight text-muted-foreground">Order Manager</div>
-      </div>
-    </div>
-  )
-}
-
 export function Sidebar({ brandId }: { brandId: string }) {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -124,7 +109,6 @@ export function Sidebar({ brandId }: { brandId: string }) {
       {/* 데스크탑 사이드바 */}
       <aside className="hidden md:block w-[240px] shrink-0 border-r-2 border-slate-200 bg-slate-100 shadow-[inset_-4px_0_8px_-8px_rgba(15,23,42,0.15)]">
         <div className="sticky top-0 p-4">
-          <SidebarHeader />
           <MenuList brandId={brandId} pathname={pathname} />
         </div>
       </aside>
@@ -141,7 +125,6 @@ export function Sidebar({ brandId }: { brandId: string }) {
           />
           <SheetContent side="left" className="w-[260px] p-4">
             <SheetTitle className="sr-only">메뉴</SheetTitle>
-            <SidebarHeader />
             <MenuList
               brandId={brandId}
               pathname={pathname}

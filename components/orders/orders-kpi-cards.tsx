@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import type { OrderKpis, DateRange } from '@/lib/queries/orders'
 
 function fmtWon(n: number): string {
@@ -109,14 +110,45 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="text-sm font-semibold text-muted-foreground">{children}</h2>
 }
 
-function PrevComparisonCard({ prev, prevRange }: { prev: OrderKpis; prevRange: DateRange }) {
+function fmtDelta(cur: number | null, prev: number | null): { text: string; tone: 'up' | 'down' | 'flat' | 'none' } {
+  if (cur === null || prev === null) return { text: '—', tone: 'none' }
+  if (prev === 0) {
+    if (cur === 0) return { text: '0.0%', tone: 'flat' }
+    return { text: 'NEW', tone: 'up' }
+  }
+  const pct = ((cur - prev) / prev) * 100
+  if (Math.abs(pct) < 0.05) return { text: '0.0%', tone: 'flat' }
+  const sign = pct > 0 ? '+' : ''
+  return {
+    text: `${sign}${pct.toFixed(1)}%`,
+    tone: pct > 0 ? 'up' : 'down',
+  }
+}
+
+function PrevComparisonCard({
+  data,
+  prev,
+  prevRange,
+}: {
+  data: OrderKpis
+  prev: OrderKpis
+  prevRange: DateRange
+}) {
   const rows = [
-    { label: '주문건수', value: fmtCount(prev.orderCount) },
-    { label: '최종매출', value: fmtWon(prev.finalRevenue) },
-    { label: '방문자수', value: prev.visits === null ? '—' : `${prev.visits.toLocaleString('ko-KR')}명` },
-    { label: '구매전환', value: fmtPercent(prev.conversionRate) },
-    { label: '객단가', value: prev.avgOrderValue === null ? '—' : fmtWon(prev.avgOrderValue) },
+    { label: '주문건수', delta: fmtDelta(data.orderCount, prev.orderCount) },
+    { label: '최종매출', delta: fmtDelta(data.finalRevenue, prev.finalRevenue) },
+    { label: '방문자수', delta: fmtDelta(data.visits, prev.visits) },
+    { label: '구매전환', delta: fmtDelta(data.conversionRate, prev.conversionRate) },
+    { label: '객단가', delta: fmtDelta(data.avgOrderValue, prev.avgOrderValue) },
   ]
+  const toneClass = (tone: 'up' | 'down' | 'flat' | 'none') =>
+    tone === 'up'
+      ? 'text-emerald-600'
+      : tone === 'down'
+        ? 'text-red-600'
+        : tone === 'flat'
+          ? 'text-muted-foreground'
+          : 'text-muted-foreground'
   return (
     <Card>
       <CardHeader className="pb-1">
@@ -133,7 +165,9 @@ function PrevComparisonCard({ prev, prevRange }: { prev: OrderKpis; prevRange: D
           {rows.map((r) => (
             <li key={r.label} className="flex items-baseline justify-between gap-1">
               <span className="text-muted-foreground">{r.label}</span>
-              <span className="font-medium text-foreground tabular-nums">{r.value}</span>
+              <span className={cn('font-medium tabular-nums', toneClass(r.delta.tone))}>
+                {r.delta.text}
+              </span>
             </li>
           ))}
         </ul>
@@ -171,7 +205,7 @@ export function OrdersKpiCards({ data, showVisits, showNew, prev, prevRange }: P
               <KpiCard label="구매 전환률" emoji="🎯" value={fmtPercent(data.conversionRate)} />
             </>
           )}
-          {prev && prevRange && <PrevComparisonCard prev={prev} prevRange={prevRange} />}
+          {prev && prevRange && <PrevComparisonCard data={data} prev={prev} prevRange={prevRange} />}
         </div>
       </div>
 

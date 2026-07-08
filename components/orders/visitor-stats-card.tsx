@@ -11,7 +11,15 @@ import {
 } from 'recharts'
 import type { VisitorRow } from '@/lib/queries/orders'
 
-export function VisitorStatsCard({ data }: { data: VisitorRow }) {
+export function VisitorStatsCard({
+  data,
+  prev,
+}: {
+  data: VisitorRow
+  prev?: VisitorRow
+}) {
+  const fmtPrev = (n: number | undefined) =>
+    n === undefined ? '(-)' : `(${n.toLocaleString('ko-KR')})`
   return (
     <Card>
       <CardHeader>
@@ -21,14 +29,24 @@ export function VisitorStatsCard({ data }: { data: VisitorRow }) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <div className="text-xs text-muted-foreground">총 방문자</div>
-            <div className="text-lg font-bold text-cyan-700">
-              {data.totalVisits.toLocaleString('ko-KR')}
+            <div className="flex items-baseline gap-1.5">
+              <div className="text-lg font-bold text-cyan-700">
+                {data.totalVisits.toLocaleString('ko-KR')}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {fmtPrev(prev?.totalVisits)}
+              </div>
             </div>
           </div>
           <div>
             <div className="text-xs text-muted-foreground">순 방문자</div>
-            <div className="text-lg font-bold text-cyan-600">
-              {data.uniqueVisits.toLocaleString('ko-KR')}
+            <div className="flex items-baseline gap-1.5">
+              <div className="text-lg font-bold text-cyan-600">
+                {data.uniqueVisits.toLocaleString('ko-KR')}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {fmtPrev(prev?.uniqueVisits)}
+              </div>
             </div>
           </div>
         </div>

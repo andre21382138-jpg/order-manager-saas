@@ -1,7 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { TrafficRow } from '@/lib/queries/orders'
 
-export function TrafficSourcesTable({ data }: { data: TrafficRow[] }) {
+export function TrafficSourcesTable({
+  data,
+  prev = [],
+}: {
+  data: TrafficRow[]
+  prev?: TrafficRow[]
+}) {
+  const prevByDomain = new Map(prev.map((r) => [r.domain, r]))
+
   return (
     <Card>
       <CardHeader>
@@ -14,8 +22,8 @@ export function TrafficSourcesTable({ data }: { data: TrafficRow[] }) {
               <tr className="border-b text-left text-muted-foreground">
                 <th className="py-2 pr-4">#</th>
                 <th className="py-2 pr-4">도메인</th>
-                <th className="py-2 pr-4 text-right">방문 수</th>
-                <th className="py-2 pr-4 text-right">비중</th>
+                <th className="py-2 pr-4 text-right">방문 수 (전월)</th>
+                <th className="py-2 pr-4 text-right">비중 (전월)</th>
               </tr>
             </thead>
             <tbody>
@@ -26,16 +34,35 @@ export function TrafficSourcesTable({ data }: { data: TrafficRow[] }) {
                   </td>
                 </tr>
               )}
-              {data.map((r, i) => (
-                <tr key={`${r.domain}-${i}`} className="border-b">
-                  <td className="py-2 pr-4 font-medium">{i + 1}</td>
-                  <td className="py-2 pr-4">{r.domain}</td>
-                  <td className="py-2 pr-4 text-right">
-                    {r.visits.toLocaleString('ko-KR')}
-                  </td>
-                  <td className="py-2 pr-4 text-right">{r.share.toFixed(1)}%</td>
-                </tr>
-              ))}
+              {data.map((r, i) => {
+                const p = prevByDomain.get(r.domain)
+                const prevVisits = p ? p.visits.toLocaleString('ko-KR') : '(-)'
+                const prevShare = p ? `${p.share.toFixed(1)}%` : '(-)'
+                return (
+                  <tr key={`${r.domain}-${i}`} className="border-b">
+                    <td className="py-2 pr-4 font-medium">{i + 1}</td>
+                    <td className="py-2 pr-4">{r.domain}</td>
+                    <td className="py-2 pr-4 tabular-nums">
+                      <div className="flex items-baseline justify-end gap-2">
+                        <span className="min-w-[3.5rem] text-right">
+                          {r.visits.toLocaleString('ko-KR')}
+                        </span>
+                        <span className="min-w-[4rem] text-left text-xs text-muted-foreground">
+                          {p ? `(${prevVisits})` : '(-)'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-2 pr-4 tabular-nums">
+                      <div className="flex items-baseline justify-end gap-2">
+                        <span className="min-w-[3.5rem] text-right">{r.share.toFixed(1)}%</span>
+                        <span className="min-w-[3.5rem] text-left text-xs text-muted-foreground">
+                          {p ? `(${prevShare})` : '(-)'}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

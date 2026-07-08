@@ -33,6 +33,8 @@ type Props = {
   prevRange: DateRange
   prevKpis: OrderKpis
   prevProducts: ProductRow[]
+  prevVisitors: VisitorRow
+  prevTraffic: TrafficRow[]
 }
 
 type SubTab = 'dashboard' | 'lines'
@@ -52,6 +54,8 @@ export function OrdersPage({
   prevRange,
   prevKpis,
   prevProducts,
+  prevVisitors,
+  prevTraffic,
 }: Props) {
   const [tab, setTab] = useState<SubTab>('dashboard')
 
@@ -111,8 +115,8 @@ export function OrdersPage({
               {hasVisitors && (
                 <section>
                   <div className="grid gap-4 md:grid-cols-2">
-                    <VisitorStatsCard data={visitors} />
-                    <TrafficSourcesTable data={traffic} />
+                    <VisitorStatsCard data={visitors} prev={prevVisitors} />
+                    <TrafficSourcesTable data={traffic} prev={prevTraffic} />
                   </div>
                 </section>
               )}

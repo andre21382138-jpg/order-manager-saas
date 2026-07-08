@@ -19,7 +19,7 @@ export function VisitorStatsCard({
   prev?: VisitorRow
 }) {
   const fmtPrev = (n: number | undefined) =>
-    n === undefined ? '(-)' : `(${n.toLocaleString('ko-KR')})`
+    n === undefined ? '(전월 -)' : `(전월 ${n.toLocaleString('ko-KR')})`
   return (
     <Card>
       <CardHeader>

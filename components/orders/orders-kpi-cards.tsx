@@ -110,18 +110,20 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="text-sm font-semibold text-muted-foreground">{children}</h2>
 }
 
-function fmtDelta(cur: number | null, prev: number | null): { text: string; tone: 'up' | 'down' | 'flat' | 'none' } {
+type Delta = { text: string; tone: 'up' | 'down' | 'flat' | 'none' }
+
+function buildDelta(
+  cur: number | null,
+  prev: number | null,
+  format: (abs: number) => string
+): Delta {
   if (cur === null || prev === null) return { text: '—', tone: 'none' }
-  if (prev === 0) {
-    if (cur === 0) return { text: '0.0%', tone: 'flat' }
-    return { text: 'NEW', tone: 'up' }
-  }
-  const pct = ((cur - prev) / prev) * 100
-  if (Math.abs(pct) < 0.05) return { text: '0.0%', tone: 'flat' }
-  const sign = pct > 0 ? '+' : ''
+  const d = cur - prev
+  if (d === 0) return { text: format(0), tone: 'flat' }
+  const sign = d > 0 ? '+' : '-'
   return {
-    text: `${sign}${pct.toFixed(1)}%`,
-    tone: pct > 0 ? 'up' : 'down',
+    text: `${sign}${format(Math.abs(d))}`,
+    tone: d > 0 ? 'up' : 'down',
   }
 }
 
@@ -134,21 +136,24 @@ function PrevComparisonCard({
   prev: OrderKpis
   prevRange: DateRange
 }) {
+  const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`
+  const count = (n: number) => `${n.toLocaleString('ko-KR')}건`
+  const visits = (n: number) => `${n.toLocaleString('ko-KR')}명`
+  const pctPoint = (n: number) => `${n.toFixed(1)}%p`
+
   const rows = [
-    { label: '주문건수', delta: fmtDelta(data.orderCount, prev.orderCount) },
-    { label: '최종매출', delta: fmtDelta(data.finalRevenue, prev.finalRevenue) },
-    { label: '방문자수', delta: fmtDelta(data.visits, prev.visits) },
-    { label: '구매전환', delta: fmtDelta(data.conversionRate, prev.conversionRate) },
-    { label: '객단가', delta: fmtDelta(data.avgOrderValue, prev.avgOrderValue) },
+    { label: '주문건수', delta: buildDelta(data.orderCount, prev.orderCount, count) },
+    { label: '최종매출', delta: buildDelta(data.finalRevenue, prev.finalRevenue, won) },
+    { label: '방문자수', delta: buildDelta(data.visits, prev.visits, visits) },
+    { label: '구매전환', delta: buildDelta(data.conversionRate, prev.conversionRate, pctPoint) },
+    { label: '객단가', delta: buildDelta(data.avgOrderValue, prev.avgOrderValue, won) },
   ]
-  const toneClass = (tone: 'up' | 'down' | 'flat' | 'none') =>
+  const toneClass = (tone: Delta['tone']) =>
     tone === 'up'
       ? 'text-emerald-600'
       : tone === 'down'
         ? 'text-red-600'
-        : tone === 'flat'
-          ? 'text-muted-foreground'
-          : 'text-muted-foreground'
+        : 'text-muted-foreground'
   return (
     <Card>
       <CardHeader className="pb-1">
@@ -161,16 +166,16 @@ function PrevComparisonCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
-        <ul className="space-y-0 text-[11px] leading-[1.35]">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] leading-[1.35]">
           {rows.map((r) => (
-            <li key={r.label} className="flex items-baseline justify-between gap-1">
-              <span className="text-muted-foreground">{r.label}</span>
+            <div key={r.label} className="flex items-baseline gap-1">
+              <span className="text-muted-foreground shrink-0">{r.label}</span>
               <span className={cn('font-medium tabular-nums', toneClass(r.delta.tone))}>
                 {r.delta.text}
               </span>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       </CardContent>
     </Card>
   )

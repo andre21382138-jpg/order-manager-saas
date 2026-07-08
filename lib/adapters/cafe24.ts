@@ -10,7 +10,6 @@ import type {
 
 export const CAFE24_SCOPES = [
   'mall.read_order',
-  'mall.write_order',
   'mall.read_analytics',
   'mall.read_product',
   'mall.read_category',

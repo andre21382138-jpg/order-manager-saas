@@ -346,18 +346,30 @@ const cafe24Adapter = {
 
         await admin.from('order_items').delete().eq('order_id', saved.id)
 
-        const itemRows = orig.items.map((it) => {
+        // 카페24 API가 같은 상품의 옵션(필수/선택 추가상품)별로 별도 item 행을 반환하는 경우가 있다.
+        // 동일 (product_no, product_name, quantity, product_price) 조합은 중복으로 간주해 첫 번째만 유지.
+        const seenKey = new Set()
+        const itemRows = []
+        for (const it of orig.items) {
           const rawNo = String(it.product_no ?? it.product_code ?? '').trim()
           const rawOpt = String(it.option_value ?? it.additional_option_value ?? '').trim()
-          return {
+          const key = [
+            rawNo,
+            String(it.product_name ?? ''),
+            String(it.quantity ?? ''),
+            String(it.product_price ?? ''),
+          ].join('|')
+          if (seenKey.has(key)) continue
+          seenKey.add(key)
+          itemRows.push({
             order_id: saved.id,
             product_no: rawNo === '' ? null : rawNo,
             product_name: String(it.product_name ?? ''),
             option_value: rawOpt === '' ? null : rawOpt,
             qty: Number(it.quantity ?? 0),
             amount: Number(it.product_price ?? 0),
-          }
-        })
+          })
+        }
 
         if (itemRows.length > 0) {
           const { error: itemErr } = await admin.from('order_items').insert(itemRows)

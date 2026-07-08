@@ -292,6 +292,13 @@ const cafe24Adapter = {
       const orders = Array.isArray(r.data?.orders) ? r.data.orders : []
       if (orders.length === 0) break
 
+      // 진단 로그: 첫 번째 주문의 top-level 키를 pm2 로그로 남김 (한 번만)
+      if (orders[0] && !global.__loggedOrderKeys) {
+        global.__loggedOrderKeys = true
+        console.log('[DIAG] cafe24 order keys:', Object.keys(orders[0]).sort().join(', '))
+        console.log('[DIAG] cafe24 first order sample:', JSON.stringify(orders[0]).slice(0, 2000))
+      }
+
       const orderRows = orders.map((o) => {
         const itemsArr = Array.isArray(o.items) ? o.items : []
         const totalQty = itemsArr.reduce((sum, it) => sum + Number(it.quantity ?? 0), 0)

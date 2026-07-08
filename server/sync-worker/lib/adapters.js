@@ -301,13 +301,23 @@ const cafe24Adapter = {
           const sc = String(item?.status_code ?? '')
           return !sc || sc.startsWith('N') || sc.startsWith('E')
         }
-        // 부분 환불 = 전체 취소가 아니면서 items 중 일부가 취소/반품 상태
         let hasPartialRefund = !isCancelled && itemsArr.some((it) => !isItemActive(it))
 
-        // 부분 환불이지만 활성 item이 하나도 없으면 실질적으로 전액 환불 → CANCELED로 재분류
-        if (hasPartialRefund && !itemsArr.some(isItemActive)) {
-          isCancelled = true
-          hasPartialRefund = false
+        // 부분 환불이면 활성 items의 순매출 계산 (freebie는 amount=0이라 net에 영향 없음)
+        let partialNet = 0
+        if (hasPartialRefund) {
+          for (const item of itemsArr) {
+            if (!isItemActive(item)) continue
+            const price = Number(item.product_price ?? 0) * Number(item.quantity ?? 1)
+            const addDiscount = Number(item.additional_discount_price ?? 0)
+            const couponDiscount = Number(item.coupon_discount_price ?? 0)
+            partialNet += price - addDiscount - couponDiscount
+          }
+          // 활성 items의 실질 매출이 0(예: 증정품만 남음)이면 사실상 전액 환불 → CANCELED로 재분류
+          if (partialNet <= 0) {
+            isCancelled = true
+            hasPartialRefund = false
+          }
         }
 
         const amountSource = isCancelled ? o.initial_order_amount : o.actual_order_amount
@@ -320,20 +330,9 @@ const cafe24Adapter = {
           ? (Number(o.naver_point ?? 0) || Math.max(0, originalAmount - rawPayment))
           : 0
 
-        let totalAmount
-        if (hasPartialRefund) {
-          let net = 0
-          for (const item of itemsArr) {
-            if (!isItemActive(item)) continue
-            const price = Number(item.product_price ?? 0) * Number(item.quantity ?? 1)
-            const addDiscount = Number(item.additional_discount_price ?? 0)
-            const couponDiscount = Number(item.coupon_discount_price ?? 0)
-            net += price - addDiscount - couponDiscount
-          }
-          totalAmount = net
-        } else {
-          totalAmount = rawPayment + pointsSpent + creditsSpent + naverPoint
-        }
+        const totalAmount = hasPartialRefund
+          ? partialNet
+          : rawPayment + pointsSpent + creditsSpent + naverPoint
 
         const memberId = o.member_id ? String(o.member_id) : null
         const isNew = o.first_order === 'T'

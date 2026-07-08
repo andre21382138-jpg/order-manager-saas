@@ -153,24 +153,38 @@ export function ProductRankingTable({
                 </tr>
               )}
               {rows.map((r, i) => {
-                const prevQty = r.prev_qty !== null ? `${r.prev_qty.toLocaleString('ko-KR')}개` : '—'
-                const prevAmt = r.prev_amount !== null ? fmtWon(r.prev_amount) : '—'
-                const prevShare = r.prev_share !== null ? `${r.prev_share.toFixed(1)}%` : '—'
+                const prevQty = r.prev_qty !== null ? `${r.prev_qty.toLocaleString('ko-KR')}개` : '(-)'
+                const prevAmt = r.prev_amount !== null ? fmtWon(r.prev_amount) : '(-)'
+                const prevShare = r.prev_share !== null ? `${r.prev_share.toFixed(1)}%` : '(-)'
                 return (
                   <tr key={`${r.product_name}-${i}`} className="border-b">
                     <td className="py-2 pr-4 font-medium">{i + 1}</td>
                     <td className="py-2 pr-4">{r.product_name}</td>
-                    <td className="py-2 pr-4 text-right tabular-nums">
-                      {r.qty.toLocaleString('ko-KR')}개
-                      <span className="ml-1 text-xs text-muted-foreground">({prevQty})</span>
+                    <td className="py-2 pr-4 tabular-nums">
+                      <div className="flex items-baseline justify-end gap-2">
+                        <span className="min-w-[3.5rem] text-right">
+                          {r.qty.toLocaleString('ko-KR')}개
+                        </span>
+                        <span className="min-w-[4.5rem] text-left text-xs text-muted-foreground">
+                          {r.prev_qty !== null ? `(${prevQty})` : '(-)'}
+                        </span>
+                      </div>
                     </td>
-                    <td className="py-2 pr-4 text-right tabular-nums">
-                      {fmtWon(r.amount)}
-                      <span className="ml-1 text-xs text-muted-foreground">({prevAmt})</span>
+                    <td className="py-2 pr-4 tabular-nums">
+                      <div className="flex items-baseline justify-end gap-2">
+                        <span className="min-w-[6rem] text-right">{fmtWon(r.amount)}</span>
+                        <span className="min-w-[7rem] text-left text-xs text-muted-foreground">
+                          {r.prev_amount !== null ? `(${prevAmt})` : '(-)'}
+                        </span>
+                      </div>
                     </td>
-                    <td className="py-2 pr-4 text-right tabular-nums">
-                      {r.share.toFixed(1)}%
-                      <span className="ml-1 text-xs text-muted-foreground">({prevShare})</span>
+                    <td className="py-2 pr-4 tabular-nums">
+                      <div className="flex items-baseline justify-end gap-2">
+                        <span className="min-w-[3.5rem] text-right">{r.share.toFixed(1)}%</span>
+                        <span className="min-w-[4rem] text-left text-xs text-muted-foreground">
+                          {r.prev_share !== null ? `(${prevShare})` : '(-)'}
+                        </span>
+                      </div>
                     </td>
                   </tr>
                 )

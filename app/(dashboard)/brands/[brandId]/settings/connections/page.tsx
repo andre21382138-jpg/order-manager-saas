@@ -109,6 +109,16 @@ export default async function ConnectionsPage({
         <span>매체 연동</span>
       </h1>
 
+      <Card className="border-amber-300 bg-amber-50">
+        <CardContent className="flex items-start gap-2 p-3 text-sm text-amber-900">
+          <span className="text-base leading-none">⚠️</span>
+          <span>
+            쇼핑몰 &amp; 광고 추가/연동은 직접 사용하지 마시고,{' '}
+            <b>관리자에게 요청</b>하시기 바랍니다.
+          </span>
+        </CardContent>
+      </Card>
+
       {sp.connected && (
         <Card className="border-emerald-300 bg-emerald-50">
           <CardContent className="p-3 text-sm text-emerald-800">

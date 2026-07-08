@@ -92,7 +92,7 @@ export function OrdersPage({
           </div>
 
           {tab === 'dashboard' ? (
-            <div className="space-y-8">
+            <div className="space-y-10 [&>section]:pb-2 [&>section]:shadow-[0_18px_12px_-14px_rgba(15,23,42,0.25)]">
               <section>
                 <OrdersKpiCards
                   data={kpis}
@@ -102,14 +102,14 @@ export function OrdersPage({
                   prevRange={prevRange}
                 />
               </section>
-              <section className="border-t-2 border-slate-300 pt-8">
+              <section>
                 <DailyOrdersTable data={daily} visitorsDaily={visitors.daily} />
               </section>
-              <section className="border-t-2 border-slate-300 pt-8">
+              <section>
                 <ProductRankingTable data={products} prev={prevProducts} />
               </section>
               {hasVisitors && (
-                <section className="border-t-2 border-slate-300 pt-8">
+                <section>
                   <div className="grid gap-4 md:grid-cols-2">
                     <VisitorStatsCard data={visitors} />
                     <TrafficSourcesTable data={traffic} />

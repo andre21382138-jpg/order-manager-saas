@@ -92,55 +92,70 @@ export function ProductRankingTable({
               <tr className="border-b text-left text-muted-foreground">
                 <th className="py-2 pr-4">#</th>
                 <th className="py-2 pr-4">상품명</th>
-                <th className="py-2 pr-4 text-right">
-                  <SortLabel active={sortKey === 'qty'} dir={sortDir} onClick={() => toggle('qty')}>
-                    판매수량
-                  </SortLabel>
-                  <span className="mx-1">/</span>
-                  <SortLabel
-                    active={sortKey === 'prev_qty'}
-                    dir={sortDir}
-                    onClick={() => toggle('prev_qty')}
-                    className="text-xs"
-                  >
-                    (전월)
-                  </SortLabel>
+                <th className="py-2 pr-4">
+                  <div className="flex items-baseline justify-end gap-2">
+                    <span className="min-w-[3.5rem] text-right">
+                      <SortLabel active={sortKey === 'qty'} dir={sortDir} onClick={() => toggle('qty')}>
+                        판매수량
+                      </SortLabel>
+                    </span>
+                    <span className="min-w-[4.5rem] text-left">
+                      <SortLabel
+                        active={sortKey === 'prev_qty'}
+                        dir={sortDir}
+                        onClick={() => toggle('prev_qty')}
+                        className="text-xs"
+                      >
+                        (전월)
+                      </SortLabel>
+                    </span>
+                  </div>
                 </th>
-                <th className="py-2 pr-4 text-right">
-                  <SortLabel
-                    active={sortKey === 'amount'}
-                    dir={sortDir}
-                    onClick={() => toggle('amount')}
-                  >
-                    매출액
-                  </SortLabel>
-                  <span className="mx-1">/</span>
-                  <SortLabel
-                    active={sortKey === 'prev_amount'}
-                    dir={sortDir}
-                    onClick={() => toggle('prev_amount')}
-                    className="text-xs"
-                  >
-                    (전월)
-                  </SortLabel>
+                <th className="py-2 pr-4">
+                  <div className="flex items-baseline justify-end gap-2">
+                    <span className="min-w-[6rem] text-right">
+                      <SortLabel
+                        active={sortKey === 'amount'}
+                        dir={sortDir}
+                        onClick={() => toggle('amount')}
+                      >
+                        매출액
+                      </SortLabel>
+                    </span>
+                    <span className="min-w-[7rem] text-left">
+                      <SortLabel
+                        active={sortKey === 'prev_amount'}
+                        dir={sortDir}
+                        onClick={() => toggle('prev_amount')}
+                        className="text-xs"
+                      >
+                        (전월)
+                      </SortLabel>
+                    </span>
+                  </div>
                 </th>
-                <th className="py-2 pr-4 text-right">
-                  <SortLabel
-                    active={sortKey === 'share'}
-                    dir={sortDir}
-                    onClick={() => toggle('share')}
-                  >
-                    비중
-                  </SortLabel>
-                  <span className="mx-1">/</span>
-                  <SortLabel
-                    active={sortKey === 'prev_share'}
-                    dir={sortDir}
-                    onClick={() => toggle('prev_share')}
-                    className="text-xs"
-                  >
-                    (전월)
-                  </SortLabel>
+                <th className="py-2 pr-4">
+                  <div className="flex items-baseline justify-end gap-2">
+                    <span className="min-w-[3.5rem] text-right">
+                      <SortLabel
+                        active={sortKey === 'share'}
+                        dir={sortDir}
+                        onClick={() => toggle('share')}
+                      >
+                        비중
+                      </SortLabel>
+                    </span>
+                    <span className="min-w-[4rem] text-left">
+                      <SortLabel
+                        active={sortKey === 'prev_share'}
+                        dir={sortDir}
+                        onClick={() => toggle('prev_share')}
+                        className="text-xs"
+                      >
+                        (전월)
+                      </SortLabel>
+                    </span>
+                  </div>
                 </th>
               </tr>
             </thead>

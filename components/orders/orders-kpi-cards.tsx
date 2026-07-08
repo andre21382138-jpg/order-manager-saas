@@ -119,21 +119,21 @@ function PrevComparisonCard({ prev, prevRange }: { prev: OrderKpis; prevRange: D
   ]
   return (
     <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+      <CardHeader className="pb-1">
+        <CardTitle className="flex items-center gap-1 text-[13px] font-medium text-muted-foreground">
           <span>📅</span>
           <span>전월 동기간 비교</span>
+          <span className="text-[10px] text-muted-foreground/70">
+            ({fmtMMDD(prevRange.from)}~{fmtMMDD(prevRange.to)})
+          </span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-1">
-        <div className="text-xs text-muted-foreground">
-          {fmtMMDD(prevRange.from)} ~ {fmtMMDD(prevRange.to)}
-        </div>
-        <ul className="space-y-0.5 text-sm">
+      <CardContent className="pt-0">
+        <ul className="space-y-0 text-[11px] leading-[1.35]">
           {rows.map((r) => (
-            <li key={r.label} className="flex items-baseline justify-between gap-2">
+            <li key={r.label} className="flex items-baseline justify-between gap-1">
               <span className="text-muted-foreground">{r.label}</span>
-              <span className="font-medium text-foreground">{r.value}</span>
+              <span className="font-medium text-foreground tabular-nums">{r.value}</span>
             </li>
           ))}
         </ul>

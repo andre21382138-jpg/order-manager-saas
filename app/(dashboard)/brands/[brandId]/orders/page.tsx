@@ -17,6 +17,11 @@ function kstNow(): Date {
 function ymd(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
+function shiftMonth(dateStr: string, months: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1 + months, d))
+  return dt.toISOString().slice(0, 10)
+}
 function defaultRange(): DateRange {
   const now = kstNow()
   const yesterday = new Date(now.getTime() - 86400000)
@@ -61,12 +66,18 @@ export default async function BrandOrdersPage({
     ? malls[0]
     : (sp.mall && (sp.mall === 'all' || malls.includes(sp.mall)) ? sp.mall : 'all')
 
-  const [kpis, daily, products, visitors, traffic] = await Promise.all([
+  const prevRange: DateRange = {
+    from: shiftMonth(range.from, -1),
+    to: shiftMonth(range.to, -1),
+  }
+
+  const [kpis, daily, products, visitors, traffic, prevKpis] = await Promise.all([
     getOrdersKpis(supabase, brandId, mall, range),
     getDailyOrders(supabase, brandId, mall, range),
     getProductRanking(supabase, brandId, mall, range),
     getVisitors(supabase, brandId, mall, range),
     getTrafficSources(supabase, brandId, mall, range),
+    getOrdersKpis(supabase, brandId, mall, prevRange),
   ])
 
   const hasVisitors = mall !== 'all' && visitors.daily.length > 0
@@ -87,6 +98,8 @@ export default async function BrandOrdersPage({
       traffic={traffic}
       hasVisitors={hasVisitors}
       hasNewData={hasNewData}
+      prevRange={prevRange}
+      prevKpis={prevKpis}
     />
   )
 }

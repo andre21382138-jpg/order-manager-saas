@@ -30,6 +30,8 @@ type Props = {
   traffic: TrafficRow[]
   hasVisitors: boolean
   hasNewData: boolean
+  prevRange: DateRange
+  prevKpis: OrderKpis
 }
 
 type SubTab = 'dashboard' | 'lines'
@@ -46,6 +48,8 @@ export function OrdersPage({
   traffic,
   hasVisitors,
   hasNewData,
+  prevRange,
+  prevKpis,
 }: Props) {
   const [tab, setTab] = useState<SubTab>('dashboard')
 
@@ -87,7 +91,13 @@ export function OrdersPage({
 
           {tab === 'dashboard' ? (
             <>
-              <OrdersKpiCards data={kpis} showVisits={hasVisitors} showNew={hasNewData} />
+              <OrdersKpiCards
+                data={kpis}
+                showVisits={hasVisitors}
+                showNew={hasNewData}
+                prev={prevKpis}
+                prevRange={prevRange}
+              />
               <DailyOrdersTable data={daily} />
               <ProductRankingTable data={products} />
               {hasVisitors && (

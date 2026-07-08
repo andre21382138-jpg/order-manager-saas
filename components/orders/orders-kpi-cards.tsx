@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { OrderKpis } from '@/lib/queries/orders'
+import type { OrderKpis, DateRange } from '@/lib/queries/orders'
 
 function fmtWon(n: number): string {
   return `₩${Math.round(n).toLocaleString('ko-KR')}`
@@ -10,11 +10,17 @@ function fmtCount(n: number): string {
 function fmtPercent(n: number | null): string {
   return n === null ? '—' : `${n.toFixed(1)}%`
 }
+function fmtMMDD(dateStr: string): string {
+  const [, m, d] = dateStr.split('-')
+  return `${Number(m)}/${Number(d)}`
+}
 
 type Props = {
   data: OrderKpis
   showVisits: boolean
   showNew: boolean
+  prev?: OrderKpis
+  prevRange?: DateRange
 }
 
 function KpiCard({
@@ -103,7 +109,40 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="text-sm font-semibold text-muted-foreground">{children}</h2>
 }
 
-export function OrdersKpiCards({ data, showVisits, showNew }: Props) {
+function PrevComparisonCard({ prev, prevRange }: { prev: OrderKpis; prevRange: DateRange }) {
+  const rows = [
+    { label: '주문건수', value: fmtCount(prev.orderCount) },
+    { label: '최종매출', value: fmtWon(prev.finalRevenue) },
+    { label: '방문자수', value: prev.visits === null ? '—' : `${prev.visits.toLocaleString('ko-KR')}명` },
+    { label: '구매전환', value: fmtPercent(prev.conversionRate) },
+    { label: '객단가', value: prev.avgOrderValue === null ? '—' : fmtWon(prev.avgOrderValue) },
+  ]
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <span>📅</span>
+          <span>전월 동기간 비교</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-1">
+        <div className="text-xs text-muted-foreground">
+          {fmtMMDD(prevRange.from)} ~ {fmtMMDD(prevRange.to)}
+        </div>
+        <ul className="space-y-0.5 text-sm">
+          {rows.map((r) => (
+            <li key={r.label} className="flex items-baseline justify-between gap-2">
+              <span className="text-muted-foreground">{r.label}</span>
+              <span className="font-medium text-foreground">{r.value}</span>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  )
+}
+
+export function OrdersKpiCards({ data, showVisits, showNew, prev, prevRange }: Props) {
   return (
     <div className="space-y-4">
       {/* 1. 매출정보 */}
@@ -132,6 +171,7 @@ export function OrdersKpiCards({ data, showVisits, showNew }: Props) {
               <KpiCard label="구매 전환률" emoji="🎯" value={fmtPercent(data.conversionRate)} />
             </>
           )}
+          {prev && prevRange && <PrevComparisonCard prev={prev} prevRange={prevRange} />}
         </div>
       </div>
 

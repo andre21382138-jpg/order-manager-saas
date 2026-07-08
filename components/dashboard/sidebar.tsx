@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import {
-  Home,
   BarChart3,
   Megaphone,
   Package,
@@ -21,13 +20,12 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 type MenuItem = {
-  href: string // brand 상대 경로 ('' 또는 '/ad-stats' 등)
+  href: string // brand 상대 경로 (예: '/orders')
   label: string
-  icon: typeof Home
+  icon: typeof BarChart3
 }
 
 const MENUS: MenuItem[] = [
-  { href: '', label: '홈', icon: Home },
   { href: '/orders', label: '매출조회', icon: BarChart3 },
   { href: '/ad-stats', label: '광고조회', icon: Megaphone },
   { href: '/reports', label: '결산조회', icon: FileText },
@@ -50,10 +48,7 @@ function MenuList({
       {MENUS.map((m) => {
         const href = `${base}${m.href}`
         const Icon = m.icon
-        const active =
-          m.href === ''
-            ? pathname === base || pathname === `${base}/`
-            : pathname === href || pathname.startsWith(`${href}/`)
+        const active = pathname === href || pathname.startsWith(`${href}/`)
         return (
           <Link
             key={m.label}

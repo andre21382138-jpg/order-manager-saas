@@ -296,14 +296,19 @@ const cafe24Adapter = {
         const itemsArr = Array.isArray(o.items) ? o.items : []
         const totalQty = itemsArr.reduce((sum, it) => sum + Number(it.quantity ?? 0), 0)
         // 카페24 v2 API: order-level canceled="T"/"F"
-        const isCancelled = String(o.canceled ?? '').toUpperCase() === 'T'
-        // 부분 환불 판별: item.status_code가 C*/R* 이면 그 item은 취소·반품 상태
+        let isCancelled = String(o.canceled ?? '').toUpperCase() === 'T'
         const isItemActive = (item) => {
           const sc = String(item?.status_code ?? '')
-          // N* 정상, E* 교환완료(대체상품 배송) → 매출 인정. C* 취소, R* 반품 → 제외
           return !sc || sc.startsWith('N') || sc.startsWith('E')
         }
-        const hasPartialRefund = !isCancelled && itemsArr.some((it) => !isItemActive(it))
+        // 부분 환불 = 전체 취소가 아니면서 items 중 일부가 취소/반품 상태
+        let hasPartialRefund = !isCancelled && itemsArr.some((it) => !isItemActive(it))
+
+        // 부분 환불이지만 활성 item이 하나도 없으면 실질적으로 전액 환불 → CANCELED로 재분류
+        if (hasPartialRefund && !itemsArr.some(isItemActive)) {
+          isCancelled = true
+          hasPartialRefund = false
+        }
 
         const amountSource = isCancelled ? o.initial_order_amount : o.actual_order_amount
         const rawPayment = Number(amountSource?.payment_amount ?? 0)
@@ -315,10 +320,6 @@ const cafe24Adapter = {
           ? (Number(o.naver_point ?? 0) || Math.max(0, originalAmount - rawPayment))
           : 0
 
-        // total_amount 계산
-        // - 전체 취소: initial_order_amount 기준 payment + 적립 + 예치 + 네이버포인트 (환불추적용)
-        // - 부분 환불: 활성 item들의 순매출 합 (product_price·수량·할인 반영)
-        // - 정상 주문: actual_order_amount 기준 payment + 적립 + 예치 + 네이버포인트
         let totalAmount
         if (hasPartialRefund) {
           let net = 0

@@ -17,6 +17,7 @@ function buildHref(brandId: string, mall: string, range: DateRange): string {
 }
 
 export function MallTabs({ brandId, malls, activeMall, range }: Props) {
+  if (malls.length <= 1) return null
   const items = ['all', ...malls]
   return (
     <div className="flex flex-wrap gap-2 border-b pb-2">

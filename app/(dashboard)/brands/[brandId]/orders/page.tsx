@@ -57,7 +57,9 @@ export default async function BrandOrdersPage({
     to: sp.to ?? dr.to,
   }
   const malls = await getMallList(supabase, brandId)
-  const mall = sp.mall && (sp.mall === 'all' || malls.includes(sp.mall)) ? sp.mall : 'all'
+  const mall = malls.length === 1
+    ? malls[0]
+    : (sp.mall && (sp.mall === 'all' || malls.includes(sp.mall)) ? sp.mall : 'all')
 
   const [kpis, daily, products, visitors, traffic] = await Promise.all([
     getOrdersKpis(supabase, brandId, mall, range),

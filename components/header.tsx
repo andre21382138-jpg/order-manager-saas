@@ -14,7 +14,7 @@ export async function Header({ currentBrandId }: { currentBrandId?: string }) {
 
   return (
     <header className="border-b bg-white">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
+      <div className="flex h-14 items-center justify-between px-4">
         <div className="flex items-center gap-4">
           <Link href="/brands" className="font-bold hover:underline">주문 &amp; 광고수집</Link>
           {brands.length > 0 && (

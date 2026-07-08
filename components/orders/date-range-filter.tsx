@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import type { DateRange } from '@/lib/queries/orders'
 
-const PRESETS = ['7일', '30일', '당월', '전월'] as const
+const PRESETS = ['어제', '7일', '당월', '전월'] as const
 type Preset = (typeof PRESETS)[number]
 
 function kstNow(): Date {
@@ -17,10 +17,9 @@ function ymd(d: Date): string {
 export function presetRange(p: Preset): DateRange {
   const now = kstNow()
   const yesterday = new Date(now.getTime() - 86400000)
+  if (p === '어제') return { from: ymd(yesterday), to: ymd(yesterday) }
   if (p === '7일')
     return { from: ymd(new Date(yesterday.getTime() - 6 * 86400000)), to: ymd(yesterday) }
-  if (p === '30일')
-    return { from: ymd(new Date(yesterday.getTime() - 29 * 86400000)), to: ymd(yesterday) }
   if (p === '당월')
     return {
       from: ymd(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))),
@@ -64,7 +63,7 @@ export function DateRangeFilter({ brandId, mall, value }: Props) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {(['7일', '30일', '당월', '전월'] as Preset[]).map((p) => (
+      {(['어제', '7일', '당월', '전월'] as Preset[]).map((p) => (
         <Button key={p} variant="outline" size="sm" onClick={() => applyPreset(p)}>
           {p}
         </Button>

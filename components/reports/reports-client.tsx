@@ -1,8 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import useSWR from 'swr'
 import Link from 'next/link'
 import type { Route } from 'next'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { getSettlementReport, type DateRange } from '@/lib/queries/reports'
@@ -25,6 +27,28 @@ function ymd(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
 
+function kstNow(): Date {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000)
+}
+
+type Preset = '어제' | '7일' | '당월' | '전월'
+function presetRange(p: Preset): DateRange {
+  const now = kstNow()
+  const yesterday = new Date(now.getTime() - 86400000)
+  if (p === '어제') return { from: ymd(yesterday), to: ymd(yesterday) }
+  if (p === '7일')
+    return { from: ymd(new Date(yesterday.getTime() - 6 * 86400000)), to: ymd(yesterday) }
+  if (p === '당월')
+    return {
+      from: ymd(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))),
+      to: ymd(yesterday),
+    }
+  const firstOfThis = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+  const lastOfPrev = new Date(firstOfThis.getTime() - 86400000)
+  const firstOfPrev = new Date(Date.UTC(lastOfPrev.getUTCFullYear(), lastOfPrev.getUTCMonth(), 1))
+  return { from: ymd(firstOfPrev), to: ymd(lastOfPrev) }
+}
+
 function DateFilter({
   brandId,
   activeMall,
@@ -34,11 +58,37 @@ function DateFilter({
   activeMall: string
   value: DateRange
 }) {
+  const router = useRouter()
   const [from, setFrom] = useState(value.from)
   const [to, setTo] = useState(value.to)
-  const applyHref = `/brands/${brandId}/reports?mall=${encodeURIComponent(activeMall)}&from=${from}&to=${to}` as Route
+
+  useEffect(() => {
+    setFrom(value.from)
+    setTo(value.to)
+  }, [value.from, value.to])
+
+  function navigate(r: DateRange) {
+    router.push(
+      `/brands/${brandId}/reports?mall=${encodeURIComponent(activeMall)}&from=${r.from}&to=${r.to}` as Route
+    )
+  }
+
+  function applyPreset(p: Preset) {
+    const r = presetRange(p)
+    setFrom(r.from)
+    setTo(r.to)
+    navigate(r)
+  }
+
+  const dirty = from !== value.from || to !== value.to
+
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {(['어제', '7일', '당월', '전월'] as Preset[]).map((p) => (
+        <Button key={p} variant="outline" size="sm" onClick={() => applyPreset(p)}>
+          {p}
+        </Button>
+      ))}
       <input
         type="date"
         className="rounded-md border border-input bg-background px-2 py-1 text-sm"
@@ -52,12 +102,13 @@ function DateFilter({
         value={to}
         onChange={(e) => setTo(e.target.value)}
       />
-      <Link
-        href={applyHref}
-        className="rounded-md border border-input bg-foreground px-3 py-1 text-sm text-background hover:opacity-80"
+      <Button
+        variant={dirty ? 'default' : 'outline'}
+        size="sm"
+        onClick={() => navigate({ from, to })}
       >
-        적용
-      </Link>
+        조회
+      </Button>
     </div>
   )
 }

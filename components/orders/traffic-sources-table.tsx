@@ -22,8 +22,18 @@ export function TrafficSourcesTable({
               <tr className="border-b text-left text-muted-foreground">
                 <th className="py-2 pr-4">#</th>
                 <th className="py-2 pr-4">도메인</th>
-                <th className="py-2 pr-4 text-right">방문 수 (전월)</th>
-                <th className="py-2 pr-4 text-right">비중 (전월)</th>
+                <th className="py-2 pr-4">
+                  <div className="flex items-baseline justify-end gap-2">
+                    <span className="min-w-[3.5rem] text-right">방문수</span>
+                    <span className="min-w-[4rem] text-left text-xs">(전월)</span>
+                  </div>
+                </th>
+                <th className="py-2 pr-4">
+                  <div className="flex items-baseline justify-end gap-2">
+                    <span className="min-w-[3.5rem] text-right">비중</span>
+                    <span className="min-w-[3.5rem] text-left text-xs">(전월)</span>
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>

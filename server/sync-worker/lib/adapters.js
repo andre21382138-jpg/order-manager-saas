@@ -292,6 +292,26 @@ const cafe24Adapter = {
       const orders = Array.isArray(r.data?.orders) ? r.data.orders : []
       if (orders.length === 0) break
 
+      // 진단: return_confirmed_date가 채워진 첫 주문(부분 환불 케이스 추정)의 전체 필드 로그
+      if (!global.__loggedRefundOrder) {
+        const refundOrder = orders.find((o) => o.return_confirmed_date || (o.items || []).some((it) => it.claim_type || it.claim_code || it.refund_amount))
+        if (refundOrder) {
+          global.__loggedRefundOrder = true
+          console.log('[DIAG-REFUND] order_id:', refundOrder.order_id)
+          console.log('[DIAG-REFUND] top keys with values:',
+            Object.entries(refundOrder)
+              .filter(([k]) => /cancel|return|refund|claim|paid|shipping_status/i.test(k))
+              .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+              .join(' | ')
+          )
+          const firstItem = (refundOrder.items || [])[0]
+          if (firstItem) {
+            console.log('[DIAG-REFUND] first item keys:', Object.keys(firstItem).sort().join(', '))
+            console.log('[DIAG-REFUND] first item sample:', JSON.stringify(firstItem).slice(0, 1500))
+          }
+        }
+      }
+
       const orderRows = orders.map((o) => {
         const itemsArr = Array.isArray(o.items) ? o.items : []
         const totalQty = itemsArr.reduce((sum, it) => sum + Number(it.quantity ?? 0), 0)

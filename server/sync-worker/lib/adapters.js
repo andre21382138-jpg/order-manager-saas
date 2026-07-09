@@ -1737,10 +1737,10 @@ async function googleAdsSearch(customerId, loginCustomerId, developerToken, acce
     )
     if (r.status === 401) throw new Error('access_token 만료 또는 무효')
     if (r.status === 403) {
-      throw new Error(`권한 오류 (403): ${JSON.stringify(r.data).slice(0, 200)}`)
+      throw new Error(`권한 오류 (403): ${JSON.stringify(r.data).slice(0, 1500)}`)
     }
     if (r.status !== 200) {
-      throw new Error(`Google Ads API ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`)
+      throw new Error(`Google Ads API ${r.status}: ${JSON.stringify(r.data).slice(0, 1500)}`)
     }
     const results = Array.isArray(r.data?.results) ? r.data.results : []
     all.push(...results)

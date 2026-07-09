@@ -292,9 +292,6 @@ const cafe24Adapter = {
       const orders = Array.isArray(r.data?.orders) ? r.data.orders : []
       if (orders.length === 0) break
 
-      // 진단: 조회된 페이지의 order_id 목록을 pm2 로그로 남김
-      console.log(`[DIAG-PAGE] page offset=${offset} count=${orders.length} ids=${orders.map((o) => `${o.order_id}(${String(o.order_date).slice(0,10)}${o.canceled === 'T' ? '/C' : ''})`).join(', ')}`)
-
       const orderRows = orders.map((o) => {
         const itemsArr = Array.isArray(o.items) ? o.items : []
         const totalQty = itemsArr.reduce((sum, it) => sum + Number(it.quantity ?? 0), 0)

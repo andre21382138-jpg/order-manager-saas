@@ -26,7 +26,7 @@ export default async function Page({
     .from('brand_credentials')
     .select('id, channel, channel_account')
     .eq('brand_id', brandId)
-    .eq('channel', 'naver_ad')
+    .in('channel', ['naver_ad', 'google_ads', 'facebook_ad'])
     .eq('status', 'active')
     .order('created_at', { ascending: true })
 

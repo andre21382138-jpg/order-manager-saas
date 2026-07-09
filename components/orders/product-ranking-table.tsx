@@ -181,7 +181,12 @@ export function ProductRankingTable({
                 return (
                   <tr key={`${r.product_name}-${i}`} className="border-b">
                     <td className="py-2 pr-4 font-medium">{i + 1}</td>
-                    <td className="py-2 pr-4">{r.product_name}</td>
+                    <td
+                      className="max-w-[220px] truncate py-2 pr-4"
+                      title={r.product_name}
+                    >
+                      {r.product_name}
+                    </td>
                     <td className="py-2 pr-4 tabular-nums">
                       <div className="flex items-baseline justify-end gap-2">
                         <span className="min-w-[3.5rem] text-right">

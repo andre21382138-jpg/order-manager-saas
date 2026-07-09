@@ -8,7 +8,7 @@ import { buttonVariants } from '@/components/ui/button'
 
 const CHANNEL_LABEL: Record<string, string> = {
   naver_ad: '네이버광고',
-  google_ads: '구글애즈',
+  google_ads: 'Google Ads',
   facebook_ad: '페이스북광고',
 }
 
@@ -66,7 +66,7 @@ export default async function Page({
                     : 'border-input bg-background text-muted-foreground hover:bg-muted'
                 )}
               >
-                {CHANNEL_LABEL[c.channel] ?? c.channel} · {c.channel_account}
+                {CHANNEL_LABEL[c.channel] ?? c.channel}
               </Link>
             )
           })}

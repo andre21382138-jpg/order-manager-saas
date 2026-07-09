@@ -265,7 +265,7 @@ const cafe24Adapter = {
       let r
       try {
         r = await httpsRequest(
-          `https://${mallId}.cafe24api.com/api/v2/admin/orders?shop_no=1&start_date=${startDate}&end_date=${endDate}&limit=${limit}&offset=${offset}&embed=items`,
+          `https://${mallId}.cafe24api.com/api/v2/admin/orders?shop_no=1&start_date=${startDate}&end_date=${endDate}&date_type=payment_date&limit=${limit}&offset=${offset}&embed=items`,
           {
             method: 'GET',
             headers: {
@@ -336,11 +336,20 @@ const cafe24Adapter = {
 
         const memberId = o.member_id ? String(o.member_id) : null
         const isNew = o.first_order === 'T'
+        // 결제완료일 = payment_date (없으면 order_date fallback), 환불완료일 = return_confirmed_date > cancel_date
+        const toDate = (v) => (v ? String(v).slice(0, 10) : null)
+        const paymentDate = toDate(o.payment_date) || toDate(o.order_date)
+        const refundDate = isCancelled || hasPartialRefund
+          ? (toDate(o.return_confirmed_date) || toDate(o.cancel_date))
+          : null
+
         return {
           brand_id: brandId,
           mall_type: channelAccount,
           order_no: String(o.order_id ?? ''),
           date: o.order_date ?? null,
+          payment_date: paymentDate,
+          refund_date: refundDate,
           total_amount: totalAmount,
           total_qty: totalQty,
           original_amount: originalAmount,

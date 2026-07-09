@@ -84,20 +84,30 @@ export default async function BrandOrdersPage({
     getTrafficSources(supabase, brandId, mall, prevRange),
   ])
 
-  // 전체 뷰 (2개 이상 몰): 몰별 매출 비교용 데이터
-  const perMallKpis: { mall: string; kpis: Awaited<ReturnType<typeof getOrdersKpis>>; prevKpis: Awaited<ReturnType<typeof getOrdersKpis>> }[] = []
+  // 전체 뷰 (2개 이상 몰): 몰별 매출 비교용 데이터 + 몰별 상품 순위
+  const perMallKpis: {
+    mall: string
+    kpis: Awaited<ReturnType<typeof getOrdersKpis>>
+    prevKpis: Awaited<ReturnType<typeof getOrdersKpis>>
+    products: Awaited<ReturnType<typeof getProductRanking>>
+    prevProducts: Awaited<ReturnType<typeof getProductRanking>>
+  }[] = []
   if (isAllMultimall) {
     const results = await Promise.all(
       malls.flatMap((m) => [
         getOrdersKpis(supabase, brandId, m, range),
         getOrdersKpis(supabase, brandId, m, prevRange),
+        getProductRanking(supabase, brandId, m, range),
+        getProductRanking(supabase, brandId, m, prevRange),
       ])
     )
     for (let i = 0; i < malls.length; i++) {
       perMallKpis.push({
         mall: malls[i],
-        kpis: results[i * 2],
-        prevKpis: results[i * 2 + 1],
+        kpis: results[i * 4] as Awaited<ReturnType<typeof getOrdersKpis>>,
+        prevKpis: results[i * 4 + 1] as Awaited<ReturnType<typeof getOrdersKpis>>,
+        products: results[i * 4 + 2] as Awaited<ReturnType<typeof getProductRanking>>,
+        prevProducts: results[i * 4 + 3] as Awaited<ReturnType<typeof getProductRanking>>,
       })
     }
   }

@@ -36,7 +36,13 @@ type Props = {
   prevProducts: ProductRow[]
   prevVisitors: VisitorRow
   prevTraffic: TrafficRow[]
-  perMallKpis: { mall: string; kpis: OrderKpis; prevKpis: OrderKpis }[]
+  perMallKpis: {
+    mall: string
+    kpis: OrderKpis
+    prevKpis: OrderKpis
+    products: ProductRow[]
+    prevProducts: ProductRow[]
+  }[]
 }
 
 type SubTab = 'dashboard' | 'lines'

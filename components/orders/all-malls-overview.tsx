@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import type { OrderKpis, DateRange } from '@/lib/queries/orders'
+import type { OrderKpis, DateRange, ProductRow } from '@/lib/queries/orders'
+import { ProductRankingTable } from './product-ranking-table'
 
 function fmtWon(n: number): string {
   return `₩${Math.round(n).toLocaleString('ko-KR')}`
@@ -27,7 +28,13 @@ type Props = {
   kpis: OrderKpis
   prevKpis: OrderKpis
   prevRange: DateRange
-  perMallKpis: { mall: string; kpis: OrderKpis; prevKpis: OrderKpis }[]
+  perMallKpis: {
+    mall: string
+    kpis: OrderKpis
+    prevKpis: OrderKpis
+    products: ProductRow[]
+    prevProducts: ProductRow[]
+  }[]
 }
 
 export function AllMallsOverview({ kpis, prevKpis, prevRange, perMallKpis }: Props) {
@@ -110,6 +117,16 @@ export function AllMallsOverview({ kpis, prevKpis, prevRange, perMallKpis }: Pro
           </div>
         </CardContent>
       </Card>
+
+      {/* 쇼핑몰별 상품 판매 순위 (좌우 배치) */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {sortedMalls.map((row) => (
+          <div key={`ranking-${row.mall}`} className="space-y-2">
+            <h3 className="text-sm font-semibold text-muted-foreground">{row.mall}</h3>
+            <ProductRankingTable data={row.products} prev={row.prevProducts} />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

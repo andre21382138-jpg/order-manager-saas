@@ -336,12 +336,22 @@ const cafe24Adapter = {
 
         const memberId = o.member_id ? String(o.member_id) : null
         const isNew = o.first_order === 'T'
-        // 결제완료일 = payment_date (없으면 order_date fallback), 환불완료일 = return_confirmed_date > cancel_date
+        // 결제완료일 = payment_date (없으면 order_date fallback)
+        // 환불완료일 = item.refund_date 중 가장 최근 (없으면 return_confirmed_date / cancel_date fallback)
         const toDate = (v) => (v ? String(v).slice(0, 10) : null)
         const paymentDate = toDate(o.payment_date) || toDate(o.order_date)
-        const refundDate = isCancelled || hasPartialRefund
-          ? (toDate(o.return_confirmed_date) || toDate(o.cancel_date))
-          : null
+        let refundDate = null
+        if (isCancelled || hasPartialRefund) {
+          const itemRefundDates = itemsArr
+            .map((it) => toDate(it.refund_date))
+            .filter(Boolean)
+          if (itemRefundDates.length > 0) {
+            itemRefundDates.sort()
+            refundDate = itemRefundDates[itemRefundDates.length - 1]
+          } else {
+            refundDate = toDate(o.return_confirmed_date) || toDate(o.cancel_date)
+          }
+        }
 
         return {
           brand_id: brandId,

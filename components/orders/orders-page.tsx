@@ -9,6 +9,7 @@ import { ProductRankingTable } from './product-ranking-table'
 import { VisitorStatsCard } from './visitor-stats-card'
 import { TrafficSourcesTable } from './traffic-sources-table'
 import { OrderLinesTab } from './order-lines-tab'
+import { AllMallsOverview } from './all-malls-overview'
 import type {
   DateRange,
   OrderKpis,
@@ -35,6 +36,7 @@ type Props = {
   prevProducts: ProductRow[]
   prevVisitors: VisitorRow
   prevTraffic: TrafficRow[]
+  perMallKpis: { mall: string; kpis: OrderKpis; prevKpis: OrderKpis }[]
 }
 
 type SubTab = 'dashboard' | 'lines'
@@ -56,8 +58,10 @@ export function OrdersPage({
   prevProducts,
   prevVisitors,
   prevTraffic,
+  perMallKpis,
 }: Props) {
   const [tab, setTab] = useState<SubTab>('dashboard')
+  const isAllMultimall = mall === 'all' && malls.length >= 2
 
   return (
     <div className="space-y-6">
@@ -72,6 +76,13 @@ export function OrdersPage({
         <div className="rounded-md border p-4 text-sm text-muted-foreground">
           아직 쇼핑몰이 등록되지 않았습니다. 매체 연결에서 카페24 또는 스마트스토어를 등록하세요.
         </div>
+      ) : isAllMultimall ? (
+        <AllMallsOverview
+          kpis={kpis}
+          prevKpis={prevKpis}
+          prevRange={prevRange}
+          perMallKpis={perMallKpis}
+        />
       ) : (
         <>
           <div className="flex gap-1 border-b">

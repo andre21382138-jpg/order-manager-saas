@@ -71,6 +71,7 @@ export default async function BrandOrdersPage({
     to: shiftMonth(range.to, -1),
   }
 
+  const isAllMultimall = mall === 'all' && malls.length >= 2
   const [kpis, daily, products, visitors, traffic, prevKpis, prevProducts, prevVisitors, prevTraffic] = await Promise.all([
     getOrdersKpis(supabase, brandId, mall, range),
     getDailyOrders(supabase, brandId, mall, range),
@@ -82,6 +83,24 @@ export default async function BrandOrdersPage({
     getVisitors(supabase, brandId, mall, prevRange),
     getTrafficSources(supabase, brandId, mall, prevRange),
   ])
+
+  // 전체 뷰 (2개 이상 몰): 몰별 매출 비교용 데이터
+  const perMallKpis: { mall: string; kpis: Awaited<ReturnType<typeof getOrdersKpis>>; prevKpis: Awaited<ReturnType<typeof getOrdersKpis>> }[] = []
+  if (isAllMultimall) {
+    const results = await Promise.all(
+      malls.flatMap((m) => [
+        getOrdersKpis(supabase, brandId, m, range),
+        getOrdersKpis(supabase, brandId, m, prevRange),
+      ])
+    )
+    for (let i = 0; i < malls.length; i++) {
+      perMallKpis.push({
+        mall: malls[i],
+        kpis: results[i * 2],
+        prevKpis: results[i * 2 + 1],
+      })
+    }
+  }
 
   const hasVisitors = mall !== 'all' && visitors.daily.length > 0
   // 신규/재구매는 자사몰(cafe24 회원) 데이터. 스마트스토어는 게스트 구매 다수라 무의미.
@@ -106,6 +125,7 @@ export default async function BrandOrdersPage({
       prevProducts={prevProducts}
       prevVisitors={prevVisitors}
       prevTraffic={prevTraffic}
+      perMallKpis={perMallKpis}
     />
   )
 }

@@ -68,13 +68,14 @@ export type AdStatsRawRows = RawStatsRow[]
 export async function getAllAdStatsRows(
   supabase: SupabaseClient,
   brandId: string,
-  range: DateRange
+  range: DateRange,
+  channel?: string
 ): Promise<RawStatsRow[]> {
   const PAGE = 1000
   const all: RawStatsRow[] = []
   let from = 0
   while (true) {
-    const { data, error } = await supabase
+    let q = supabase
       .from('ad_stats')
       .select(`
         date, impressions, clicks, cost, conversions, conversion_revenue,
@@ -83,7 +84,8 @@ export async function getAllAdStatsRows(
       .eq('brand_id', brandId)
       .gte('date', range.from)
       .lte('date', range.to)
-      .range(from, from + PAGE - 1)
+    if (channel) q = q.eq('ad_units.channel', channel)
+    const { data, error } = await q.range(from, from + PAGE - 1)
     if (error) throw new Error(`ad_stats 조회 실패: ${error.message}`)
     const chunk = (data ?? []) as unknown as RawStatsRow[]
     all.push(...chunk)

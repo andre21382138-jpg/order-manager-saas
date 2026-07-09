@@ -30,19 +30,20 @@ type MapUnit = { id: string; name: string }
 export function AdStatsPage({
   brand,
   hasCredential,
+  channel,
 }: {
   brand: { id: string; name: string }
   hasCredential: boolean
+  channel?: string | null
 }) {
   const [range, setRange] = useState<DateRange>(defaultRange)
   const [trendUnit, setTrendUnit] = useState<TrendUnit | null>(null)
   const [mapUnit, setMapUnit] = useState<MapUnit | null>(null)
   const supabase = createBrowserClient()
 
-  // 원본 rows를 한 번만 fetch하고 5개 view는 useMemo로 파생 (기존엔 SWR 5개가 각각 fetch → 5x 부하)
   const rows = useSWR(
-    hasCredential ? ['ad-stats-rows', brand.id, range.from, range.to] : null,
-    () => getAllAdStatsRows(supabase, brand.id, range)
+    hasCredential ? ['ad-stats-rows', brand.id, channel ?? 'all', range.from, range.to] : null,
+    () => getAllAdStatsRows(supabase, brand.id, range, channel ?? undefined)
   )
   const isLoading = rows.isLoading
   const raw = rows.data ?? []

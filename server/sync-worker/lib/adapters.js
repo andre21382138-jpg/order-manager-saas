@@ -360,9 +360,12 @@ const cafe24Adapter = {
           date: o.order_date ?? null,
           payment_date: paymentDate,
           refund_date: refundDate,
-          total_amount: totalAmount,
+          total_amount: totalAmount,           // 결제합계 (현금+적립+예치+네이버)
+          payment_amount: rawPayment,          // 실결제금액 (현금/카드)
+          points_amount: pointsSpent,          // 사용 적립금
+          credits_amount: creditsSpent,        // 사용 예치금
           total_qty: totalQty,
-          original_amount: originalAmount,
+          original_amount: originalAmount,     // 상품구매금액
           is_cancelled: isCancelled,
           is_new: isNew,
           naver_amount: naverPoint,

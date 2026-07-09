@@ -3,9 +3,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 export type DateRange = { from: string; to: string }
 
 export type OrderKpis = {
-  totalRevenue: number
+  productPriceTotal: number   // 총 주문금액 (상품 판매가 합)
+  discountTotal: number       // 적립금 및 기타할인
+  finalRevenue: number        // 실제 결제금액 (최종매출)
   orderCount: number
-  finalRevenue: number
   refundAmount: number
   avgOrderValue: number | null
   visits: number | null
@@ -15,6 +16,8 @@ export type OrderKpis = {
   guestCount: number
   memberNewCount: number
   memberRepeatCount: number
+  // Legacy alias (existing UI components may still reference)
+  totalRevenue: number
 }
 
 export type DailyRow = {
@@ -85,7 +88,9 @@ export async function getOrdersKpis(
   })
   if (error) throw new Error(`orders KPI 조회 실패: ${error.message}`)
   const row = (data ?? [])[0] ?? {
-    total_revenue: 0,
+    product_price_total: 0,
+    discount_total: 0,
+    final_revenue: 0,
     order_count: 0,
     refund_amount: 0,
     new_count: 0,
@@ -94,7 +99,9 @@ export async function getOrdersKpis(
     member_new_count: 0,
     member_repeat_count: 0,
   }
-  const totalRevenue = toNum(row.total_revenue)
+  const productPriceTotal = toNum(row.product_price_total)
+  const discountTotal = toNum(row.discount_total)
+  const finalRevenue = toNum(row.final_revenue)
   const orderCount = Number(row.order_count ?? 0)
   const refundAmount = toNum(row.refund_amount)
   const newCount = Number(row.new_count ?? 0)
@@ -102,8 +109,8 @@ export async function getOrdersKpis(
   const guestCount = Number(row.guest_count ?? 0)
   const memberNewCount = Number(row.member_new_count ?? 0)
   const memberRepeatCount = Number(row.member_repeat_count ?? 0)
-  const finalRevenue = totalRevenue - refundAmount
-  const avgOrderValue = orderCount > 0 ? totalRevenue / orderCount : null
+  const totalRevenue = finalRevenue + refundAmount // 결제합계 (구 컴포넌트 호환)
+  const avgOrderValue = orderCount > 0 ? finalRevenue / orderCount : null
   const newOrderRate = orderCount > 0 ? (newCount / orderCount) * 100 : null
 
   // 방문자 (mall !== 'all' 일 때만)
@@ -128,9 +135,11 @@ export async function getOrdersKpis(
   }
 
   return {
+    productPriceTotal,
+    discountTotal,
+    finalRevenue,
     totalRevenue,
     orderCount,
-    finalRevenue,
     refundAmount,
     avgOrderValue,
     visits,

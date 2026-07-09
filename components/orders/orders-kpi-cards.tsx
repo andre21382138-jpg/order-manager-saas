@@ -188,10 +188,24 @@ export function OrdersKpiCards({ data, showVisits, showNew, prev, prevRange }: P
       <div className="space-y-2">
         <SectionTitle>💰 매출정보</SectionTitle>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <KpiCard label="총 주문금액" emoji="💰" value={fmtWon(data.totalRevenue)} />
+          <KpiCard
+            label="총 주문금액"
+            emoji="💰"
+            value={fmtWon(data.productPriceTotal)}
+            sub="상품 판매가 기준"
+          />
+          <KpiCard
+            label="적립금 및 기타할인"
+            emoji="🏷️"
+            value={fmtWon(data.discountTotal)}
+          />
+          <KpiCard
+            label="실제 결제금액"
+            emoji="💵"
+            value={fmtWon(data.finalRevenue)}
+            sub="최종매출"
+          />
           <KpiCard label="주문 건수" emoji="🛒" value={fmtCount(data.orderCount)} />
-          <KpiCard label="환불 금액" emoji="↩️" value={fmtWon(data.refundAmount)} />
-          <KpiCard label="최종 매출" emoji="💵" value={fmtWon(data.finalRevenue)} />
         </div>
       </div>
 

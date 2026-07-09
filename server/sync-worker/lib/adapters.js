@@ -265,7 +265,7 @@ const cafe24Adapter = {
       let r
       try {
         r = await httpsRequest(
-          `https://${mallId}.cafe24api.com/api/v2/admin/orders?shop_no=1&start_date=${startDate}&end_date=${endDate}&date_type=payment_date&limit=${limit}&offset=${offset}&embed=items`,
+          `https://${mallId}.cafe24api.com/api/v2/admin/orders?shop_no=1&start_date=${startDate}&end_date=${endDate}&date_type=pay_date&limit=${limit}&offset=${offset}&embed=items`,
           {
             method: 'GET',
             headers: {

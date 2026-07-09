@@ -107,7 +107,13 @@ export function OrdersPage({
                 />
               </section>
               <section>
-                <DailyOrdersTable data={daily} visitorsDaily={visitors.daily} />
+                <DailyOrdersTable
+                  data={daily}
+                  visitorsDaily={visitors.daily}
+                  brandId={brand.id}
+                  mall={mall}
+                  range={range}
+                />
               </section>
               <section>
                 <ProductRankingTable data={products} prev={prevProducts} />

@@ -65,6 +65,12 @@ function toNum(v: number | string | null | undefined): number {
   return 0
 }
 
+export type DailyRevenueInclusion = {
+  points: boolean
+  credits: boolean
+  naver: boolean
+}
+
 export async function getMallList(
   supabase: SupabaseClient,
   brandId: string
@@ -156,13 +162,17 @@ export async function getDailyOrders(
   supabase: SupabaseClient,
   brandId: string,
   mall: string,
-  range: DateRange
+  range: DateRange,
+  inclusion: DailyRevenueInclusion = { points: true, credits: true, naver: true }
 ): Promise<DailyRow[]> {
   const { data, error } = await supabase.rpc('get_daily_orders', {
     p_brand_id: brandId,
     p_mall: mall,
     p_from: range.from,
     p_to: range.to,
+    p_include_points: inclusion.points,
+    p_include_credits: inclusion.credits,
+    p_include_naver: inclusion.naver,
   })
   if (error) throw new Error(`일별 매출 조회 실패: ${error.message}`)
   return (data ?? []).map((r: { date: string; revenue: number | string; order_count: number }) => {

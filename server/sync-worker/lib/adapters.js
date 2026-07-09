@@ -374,10 +374,10 @@ const cafe24Adapter = {
         }
       })
 
-      const { data: savedOrders, error: upsertErr } = await admin
-        .from('orders')
-        .upsert(orderRows, { onConflict: 'brand_id,order_no' })
-        .select('id, order_no')
+      // PostgREST 스키마 캐시 문제 우회를 위해 RPC 사용 (JSONB로 전달 → PostgREST 컬럼 필터링 미적용)
+      const { data: savedOrders, error: upsertErr } = await admin.rpc('upsert_cafe24_orders', {
+        p_orders: orderRows,
+      })
 
       if (upsertErr) {
         return {

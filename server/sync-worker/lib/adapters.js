@@ -1662,7 +1662,7 @@ const facebookAdAdapter = {
         const batch = rows.slice(i, i + CHUNK)
         const { error, count } = await admin
           .from('ad_stats')
-          .upsert(batch, { onConflict: 'brand_id,ad_unit_id,date', count: 'exact' })
+          .upsert(batch, { onConflict: 'ad_unit_id,date', count: 'exact' })
         if (error) {
           return { ok: false, error: `ad_stats upsert 실패: ${error.message}`, retryable: true }
         }
@@ -1981,7 +1981,7 @@ const googleAdsAdapter = {
         const batch = rows.slice(i, i + CHUNK)
         const { error, count } = await admin
           .from('ad_stats')
-          .upsert(batch, { onConflict: 'brand_id,ad_unit_id,date', count: 'exact' })
+          .upsert(batch, { onConflict: 'ad_unit_id,date', count: 'exact' })
         if (error) return { ok: false, error: `ad_stats upsert 실패: ${error.message}`, retryable: true }
         upserted += count ?? batch.length
       }

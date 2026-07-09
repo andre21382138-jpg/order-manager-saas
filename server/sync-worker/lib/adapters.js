@@ -1920,14 +1920,15 @@ const googleAdsAdapter = {
       return { ok: false, error: e.message, retryable: true }
     }
 
-    // ad external_id → ad_unit_id 매핑
+    // ad external_id → ad_unit_id 매핑 + parent(campaign) 매핑
     const { data: existingAds } = await admin
       .from('ad_units')
-      .select('id, external_id')
+      .select('id, external_id, parent_id')
       .eq('brand_id', brandId)
       .eq('channel', 'google_ads')
       .eq('level', 'keyword')
     const adIdMap = new Map((existingAds ?? []).map((r) => [r.external_id, r.id]))
+    const keywordToCampaign = new Map((existingAds ?? []).map((r) => [r.id, r.parent_id]))
 
     if (adIdMap.size === 0) {
       return {
@@ -1974,11 +1975,36 @@ const googleAdsAdapter = {
       })
     }
 
+    // 캠페인 레벨 stats 집계 (동일 campaign_parent + date에서 키워드 rows를 합산)
+    const campaignAgg = new Map() // key: `${campaign_id}|${date}`, value: {cost, impressions, clicks, conversions, conversion_revenue}
+    for (const r of rows) {
+      const campaignId = keywordToCampaign.get(r.ad_unit_id)
+      if (!campaignId) continue
+      const key = `${campaignId}|${r.date}`
+      const cur = campaignAgg.get(key) ?? { cost: 0, impressions: 0, clicks: 0, conversions: 0, conversion_revenue: 0 }
+      cur.cost += r.cost
+      cur.impressions += r.impressions
+      cur.clicks += r.clicks
+      cur.conversions += r.conversions
+      cur.conversion_revenue += r.conversion_revenue
+      campaignAgg.set(key, cur)
+    }
+    const campaignRows = Array.from(campaignAgg.entries()).map(([key, v]) => {
+      const [campaignId, date] = key.split('|')
+      return {
+        brand_id: brandId,
+        ad_unit_id: campaignId,
+        date,
+        ...v,
+      }
+    })
+    const allRows = rows.concat(campaignRows)
+
     let upserted = 0
-    if (rows.length > 0) {
+    if (allRows.length > 0) {
       const CHUNK = 1000
-      for (let i = 0; i < rows.length; i += CHUNK) {
-        const batch = rows.slice(i, i + CHUNK)
+      for (let i = 0; i < allRows.length; i += CHUNK) {
+        const batch = allRows.slice(i, i + CHUNK)
         const { error, count } = await admin
           .from('ad_stats')
           .upsert(batch, { onConflict: 'ad_unit_id,date', count: 'exact' })
@@ -1993,6 +2019,7 @@ const googleAdsAdapter = {
       meta: {
         days: new Set(insights.map((i) => i.segments?.date).filter(Boolean)).size,
         ad_stats_upserted: upserted,
+        campaign_agg_count: campaignRows.length,
         warnings_count: warnings,
       },
     }

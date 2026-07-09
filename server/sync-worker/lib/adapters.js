@@ -1975,29 +1975,45 @@ const googleAdsAdapter = {
       })
     }
 
-    // 캠페인 레벨 stats 집계 (동일 campaign_parent + date에서 키워드 rows를 합산)
-    const campaignAgg = new Map() // key: `${campaign_id}|${date}`, value: {cost, impressions, clicks, conversions, conversion_revenue}
-    for (const r of rows) {
-      const campaignId = keywordToCampaign.get(r.ad_unit_id)
-      if (!campaignId) continue
-      const key = `${campaignId}|${r.date}`
-      const cur = campaignAgg.get(key) ?? { cost: 0, impressions: 0, clicks: 0, conversions: 0, conversion_revenue: 0 }
-      cur.cost += r.cost
-      cur.impressions += r.impressions
-      cur.clicks += r.clicks
-      cur.conversions += r.conversions
-      cur.conversion_revenue += r.conversion_revenue
-      campaignAgg.set(key, cur)
+    // 캠페인 레벨 stats: GAQL로 직접 조회 (ad_group_ad에 포함 안 되는 쇼핑광고/PMax/DSA 등 모두 반영)
+    const { data: existingCampaigns } = await admin
+      .from('ad_units')
+      .select('id, external_id')
+      .eq('brand_id', brandId)
+      .eq('channel', 'google_ads')
+      .eq('level', 'campaign')
+    const campaignIdMap = new Map((existingCampaigns ?? []).map((r) => [r.external_id, r.id]))
+
+    let campaignInsights = []
+    try {
+      campaignInsights = await googleAdsSearch(
+        customerId, loginCustomerId, developerToken, accessToken,
+        `SELECT campaign.id, segments.date,
+                metrics.cost_micros, metrics.impressions, metrics.clicks,
+                metrics.conversions, metrics.conversions_value
+         FROM campaign
+         WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'`
+      )
+    } catch (e) {
+      return { ok: false, error: `Google Ads campaign stats 조회 실패: ${e.message}`, retryable: true }
     }
-    const campaignRows = Array.from(campaignAgg.entries()).map(([key, v]) => {
-      const [campaignId, date] = key.split('|')
-      return {
+
+    const campaignRows = []
+    for (const it of campaignInsights) {
+      const campaignExtId = String(it.campaign?.id ?? '')
+      const adUnitId = campaignIdMap.get(campaignExtId)
+      if (!adUnitId) continue
+      campaignRows.push({
         brand_id: brandId,
-        ad_unit_id: campaignId,
-        date,
-        ...v,
-      }
-    })
+        ad_unit_id: adUnitId,
+        date: it.segments?.date,
+        cost: Math.round(Number(it.metrics?.costMicros ?? 0) / 1_000_000),
+        impressions: Number(it.metrics?.impressions ?? 0),
+        clicks: Number(it.metrics?.clicks ?? 0),
+        conversions: Math.round(Number(it.metrics?.conversions ?? 0)),
+        conversion_revenue: Number(it.metrics?.conversionsValue ?? 0),
+      })
+    }
     const allRows = rows.concat(campaignRows)
 
     let upserted = 0

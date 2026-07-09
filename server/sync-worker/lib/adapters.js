@@ -1478,7 +1478,7 @@ const facebookAdAdapter = {
       const { error: err, count } = await admin
         .from('ad_units')
         .upsert(campaignRows, {
-          onConflict: 'brand_id,channel,external_id,level',
+          onConflict: 'brand_id,channel,external_id',
           count: 'exact',
         })
       if (err) return { ok: false, error: `campaigns upsert 실패: ${err.message}`, retryable: true }
@@ -1533,7 +1533,7 @@ const facebookAdAdapter = {
         const { error: err, count } = await admin
           .from('ad_units')
           .upsert(batch, {
-            onConflict: 'brand_id,channel,external_id,level',
+            onConflict: 'brand_id,channel,external_id',
             count: 'exact',
           })
         if (err) return { ok: false, error: `ads upsert 실패: ${err.message}`, retryable: true }
@@ -1820,7 +1820,7 @@ const googleAdsAdapter = {
     if (campaigns.length > 0) {
       const { error, count } = await admin
         .from('ad_units')
-        .upsert(campaigns, { onConflict: 'brand_id,channel,external_id,level', count: 'exact' })
+        .upsert(campaigns, { onConflict: 'brand_id,channel,external_id', count: 'exact' })
       if (error) return { ok: false, error: `campaigns upsert 실패: ${error.message}`, retryable: true }
       campaignCount = count ?? campaigns.length
     }
@@ -1877,7 +1877,7 @@ const googleAdsAdapter = {
         const batch = ads.slice(i, i + CHUNK)
         const { error, count } = await admin
           .from('ad_units')
-          .upsert(batch, { onConflict: 'brand_id,channel,external_id,level', count: 'exact' })
+          .upsert(batch, { onConflict: 'brand_id,channel,external_id', count: 'exact' })
         if (error) return { ok: false, error: `ads upsert 실패: ${error.message}`, retryable: true }
         keywordCount += count ?? batch.length
       }
